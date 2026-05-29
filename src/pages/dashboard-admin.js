@@ -78,7 +78,7 @@ export function renderDashboardAdmin() {
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-outline btn-sm" onclick="window.adminRefreshData()"><i class="fas fa-sync-alt"></i> Rafraîchir</button>
           <button class="btn btn-outline btn-sm" onclick="window.adminExport()"><i class="fas fa-download"></i> Exporter</button>
-
+          <button class="btn btn-sm" style="background:#c62828;color:#fff;border:none;border-radius:var(--radius-sm);font-size:.8rem;padding:6px 12px" onclick="window.adminPurgeDemoData()"><i class="fas fa-trash-alt"></i> Purger les données démo</button>
         </div>
       </div>
 
@@ -551,6 +551,26 @@ window.adminDoActivateSubscription = (userId) => {
     store.adminActivateSubscription(userId, planId);
     window.showToast('✅ Abonnement activé avec succès !', 'success');
     document.getElementById('modal-root').innerHTML = '';
+    window.dispatchEvent(new Event('hashchange'));
+  }
+};
+
+window.adminPurgeDemoData = () => {
+  if (!confirm("⚠️ ATTENTION DANGER ⚠️\n\nCette action va SUPPRIMER DÉFINITIVEMENT toutes les publications (annonces), tous les avis, tous les paiements et tous les utilisateurs (sauf l'administrateur) de la plateforme pour la passer en production avec de vrais utilisateurs.\n\nCette opération est irréversible !\n\nVoulez-vous vraiment purger toute la plateforme ?")) {
+    return;
+  }
+
+  if (window.APP?.mode === 'api') {
+    window.APP.api.adminPurgeDemoData()
+      .then(res => {
+        window.showToast('🎉 Base de données de production purgée avec succès !', 'success');
+        adminData = null;
+        window.dispatchEvent(new Event('hashchange'));
+      })
+      .catch(e => window.showToast('Erreur: ' + e.message, 'error'));
+  } else {
+    store.clearAllDemoData();
+    window.showToast('🎉 LocalStorage purgé avec succès !', 'success');
     window.dispatchEvent(new Event('hashchange'));
   }
 };

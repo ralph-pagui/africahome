@@ -253,6 +253,10 @@ class API {
   async adminDeleteReview(id) {
     return this.request(`/admin/reviews/${id}`, { method: 'DELETE' });
   }
+
+  async adminPurgeDemoData() {
+    return this.request('/admin/purge-demo-data', { method: 'POST' });
+  }
 }
 
 export const api = new API();

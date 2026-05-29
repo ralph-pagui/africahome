@@ -333,6 +333,14 @@ class Store {
     this.data.reviews = (this.data.reviews||[]).filter(r => r.id !== reviewId);
     this.save();
   }
+  clearAllDemoData() {
+    this.data.listings = [];
+    this.data.reviews = [];
+    this.data.users = this.data.users.filter(u => u.type === 'admin');
+    this.data.favorites = [];
+    this.data.notifications = [];
+    this.save();
+  }
 }
 
 export const store = new Store();

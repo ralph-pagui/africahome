@@ -242,4 +242,37 @@ router.delete('/reviews/:id', async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/purge-demo-data
+// @desc    Purge all listings, reviews, payments, and non-admin users from the database
+router.post('/purge-demo-data', async (req, res) => {
+  try {
+    const Payment = require('../models/Payment');
+
+    // 1. Supprimer les avis
+    const reviewRes = await Review.deleteMany({});
+
+    // 2. Supprimer les annonces
+    const listingRes = await Listing.deleteMany({});
+
+    // 3. Supprimer les paiements
+    const paymentRes = await Payment.deleteMany({});
+
+    // 4. Supprimer les utilisateurs non-admin
+    const userRes = await User.deleteMany({ type: { $ne: 'admin' } });
+
+    res.json({
+      success: true,
+      message: 'Base de données purgée avec succès !',
+      stats: {
+        reviewsDeleted: reviewRes.deletedCount,
+        listingsDeleted: listingRes.deletedCount,
+        paymentsDeleted: paymentRes.deletedCount,
+        usersDeleted: userRes.deletedCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
