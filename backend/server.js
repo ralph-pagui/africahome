@@ -7,7 +7,28 @@ const cloudinary = require('cloudinary').v2;
 const connectDB = require('./config/db');
 
 // Connect to Database
-connectDB();
+connectDB().then(async () => {
+  // Auto-create admin user if none exists
+  try {
+    const User = require('./models/User');
+    const adminExists = await User.findOne({ type: 'admin' });
+    if (!adminExists) {
+      await User.create({
+        type: 'admin',
+        name: 'Admin AfricaHome',
+        phone: '000000000',
+        email: 'admin@africahome.com',
+        password: 'admin2026',
+        country: 'Cameroun',
+        city: 'Douala',
+        verified: true
+      });
+      console.log('🛡️ Compte admin créé automatiquement (phone: 000000000, mot de passe: admin2026)');
+    }
+  } catch (err) {
+    console.log('ℹ️ Admin check:', err.message);
+  }
+});
 
 // Configure Cloudinary
 cloudinary.config({
