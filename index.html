@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="AfricaHome - La plateforme immobilière leader en Afrique. Trouvez des logements, terrains et services immobiliers." />
+  <meta name="theme-color" content="#E65100" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AfricaHome" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/logo.jpg" />
+  <link rel="apple-touch-icon" href="/logo.jpg" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <title>AfricaHome - Société Immobilière | Plateforme Immobilière en Afrique</title>
+  <link rel="stylesheet" href="/src/styles/index.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://checkout.flutterwave.com/v3.js" async></script>
+</head>
+<body>
+  <div id="app">
+    <nav id="navbar"></nav>
+    <main id="main-content">
+      <noscript>
+        <div style="text-align:center;padding:60px 20px;font-family:sans-serif">
+          <h1 style="color:#E65100">AfricaHome</h1>
+          <p>Veuillez activer JavaScript pour utiliser cette application.</p>
+        </div>
+      </noscript>
+    </main>
+    <div id="modal-root"></div>
+    <div id="toast-container"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
