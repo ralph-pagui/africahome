@@ -78,7 +78,7 @@ export function renderDashboardAdmin() {
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-outline btn-sm" onclick="window.adminRefreshData()"><i class="fas fa-sync-alt"></i> Rafraîchir</button>
           <button class="btn btn-outline btn-sm" onclick="window.adminExport()"><i class="fas fa-download"></i> Exporter</button>
-          <button class="btn btn-primary btn-sm" onclick="window.adminResetData()"><i class="fas fa-sync"></i> Reset Démo</button>
+
         </div>
       </div>
 
@@ -273,7 +273,8 @@ window.adminDeleteReview = (rid) => {
   } else { store.adminDeleteReview(rid); window.showToast('Avis supprimé','success'); window.dispatchEvent(new Event('hashchange')); }
 };
 window.adminExport = () => { const d=JSON.stringify(store.data,null,2); const b=new Blob([d],{type:'application/json'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`africahome-export-${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(u); window.showToast('Exporté !','success'); };
-window.adminResetData = () => { document.getElementById('modal-root').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)this.innerHTML=''"><div class="modal"><h3><i class="fas fa-exclamation-triangle" style="color:var(--orange);margin-right:8px"></i>Réinitialiser</h3><p style="margin:16px 0;color:var(--text)">Remettre toutes les données par défaut ?</p><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-root').innerHTML=''">Annuler</button><button class="btn btn-primary btn-sm" onclick="localStorage.removeItem('africahome_data');location.reload()"><i class="fas fa-sync"></i> Réinitialiser</button></div></div></div>`; };
+
+
 
 window.adminRefreshData = () => {
   adminData = null;

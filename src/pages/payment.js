@@ -131,16 +131,7 @@ export function renderPayment() {
         </div>
       </div>
 
-      ${window.APP?.mode !== 'api' ? `
-      <!-- Demo Simulation Panel -->
-      <div style="background:rgba(230,81,0,0.05);border:1.5px solid rgba(230,81,0,0.15);border-radius:12px;padding:16px;margin-bottom:20px;text-align:center">
-        <div style="font-size:.78rem;color:var(--orange);font-weight:700;margin-bottom:6px">🧪 MODE SIMULATION (DÉMO)</div>
-        <p style="font-size:.75rem;color:var(--text);margin-bottom:12px;line-height:1.4">Vous êtes en mode démo. Vous pouvez tester la redirection Selar réelle ou simuler un paiement réussi pour activer l'abonnement.</p>
-        <button class="btn btn-outline btn-sm btn-block" onclick="window.simulateDemoPaymentSuccess()" style="border-color:var(--green);color:var(--green);background:rgba(46,125,50,0.05)">
-          <i class="fas fa-check-circle"></i> Simuler un Paiement Réussi
-        </button>
-      </div>
-      ` : ''}
+
 
       <div id="pay-error" style="color:#ef5350;font-size:.85rem;margin-bottom:10px;display:none"></div>
       <button class="btn btn-primary btn-block btn-lg" id="pay-btn" onclick="window.handlePayment()" style="font-size:1rem;padding:16px">
@@ -205,51 +196,7 @@ window.handlePayment = async () => {
   }
 };
 
-// Simulate Demo Mode Payment
-window.simulateDemoPaymentSuccess = () => {
-  const planId = document.querySelector('[name=plan]:checked')?.value;
-  if (!planId) return;
 
-  const plan = SELAR_CONFIG.products[planId];
-  if (!plan) return;
-
-  const user = store.getCurrentUser();
-  if (!user) return;
-
-  const now = new Date();
-  const endDate = new Date(now);
-  if (plan.duration) endDate.setDate(endDate.getDate() + plan.duration);
-
-  user.subscription = {
-    plan: plan.type === 'one-time' ? 'one-time' : plan.type,
-    planId: planId,
-    planName: plan.name,
-    price: plan.price,
-    active: true,
-    start: now.toISOString().split('T')[0],
-    end: plan.duration ? endDate.toISOString().split('T')[0] : null
-  };
-
-  if (user.type === 'locataire') user.accessPaid = true;
-
-  if (!user.paymentHistory) user.paymentHistory = [];
-  user.paymentHistory.push({
-    planId,
-    planName: plan.name,
-    amount: plan.price,
-    date: now.toISOString(),
-    method: 'selar_simulated'
-  });
-
-  store.save();
-  window.showToast?.(`✅ [SIMULATION] Paiement de ${formatPrice(plan.price)} FCFA confirmé ! Abonnement ${plan.name} activé.`, 'success');
-
-  const dash = user.type === 'bailleur' ? '/dashboard-bailleur' : user.type === 'professionnel' ? '/dashboard-pro' : '/dashboard-locataire';
-  setTimeout(() => {
-    window.location.hash = '#' + dash;
-    window.dispatchEvent(new Event('hashchange'));
-  }, 1500);
-};
 
 // ============= GLOBAL PAYMENT CALLBACK =============
 export function checkGlobalPaymentCallback() {
