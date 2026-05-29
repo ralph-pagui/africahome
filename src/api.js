@@ -5,6 +5,7 @@ class API {
   constructor() {
     this.token = localStorage.getItem('ah_token');
     this.user = JSON.parse(localStorage.getItem('ah_user') || 'null');
+    if (this.user && this.user._id && !this.user.id) this.user.id = this.user._id;
     this.listeners = [];
   }
 
@@ -62,6 +63,7 @@ class API {
   }
 
   setAuth(token, user) {
+    if (user && user._id && !user.id) user.id = user._id;
     this.token = token;
     this.user = user;
     localStorage.setItem('ah_token', token);
@@ -82,6 +84,7 @@ class API {
 
   async getMe() {
     const data = await this.request('/auth/me');
+    if (data.user && data.user._id && !data.user.id) data.user.id = data.user._id;
     this.user = data.user;
     localStorage.setItem('ah_user', JSON.stringify(data.user));
     return data.user;

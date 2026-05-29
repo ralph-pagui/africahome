@@ -38,6 +38,14 @@ window.APP = { api, store, mode: 'demo' };
       if (res.ok) {
         window.APP.mode = 'api';
         console.log('✅ Mode API - Backend connecté');
+        // Preload listings from API for all pages
+        try {
+          const data = await window.APP.api.getListings({ limit: 200 });
+          store.syncFromApi(data.listings || []);
+          console.log(`📦 ${(data.listings || []).length} annonces chargées depuis le backend`);
+        } catch (e) {
+          console.warn('⚠️ Échec du préchargement des annonces:', e.message);
+        }
       }
     } else {
       console.log('ℹ️ Mode DEMO - Pas de VITE_API_URL configuré, utilisation de localStorage');
@@ -45,8 +53,8 @@ window.APP = { api, store, mode: 'demo' };
   } catch {
     console.log('ℹ️ Mode DEMO - Backend non disponible, utilisation de localStorage');
   } finally {
-    // Run payment callback check after backend detection is complete
     checkGlobalPaymentCallback();
+    router.start();
   }
 })();
 
@@ -93,8 +101,7 @@ router
   .on('/payment', () => render(renderPayment()))
   .on('/owner', (id) => render(renderOwnerProfile(id)))
   .on('/favorites', () => render(renderFavorites()))
-  .on('/404', () => render(render404()))
-  .start();
+  .on('/404', () => render(render404()));
 
 // Initialize AI Chatbot
 initChatbot();

@@ -3,7 +3,7 @@ import { defaultData, getNotificationsForUser } from './data.js';
 const STORE_KEY = 'africahome_data';
 
 class Store {
-  constructor() { this.data = this.load(); this.listeners = []; }
+  constructor() { this.data = this.load(); this.listeners = []; this._apiListings = null; this._apiUsers = {}; }
   load() {
     try {
       const s = localStorage.getItem(STORE_KEY);
@@ -38,6 +38,26 @@ class Store {
     this.listeners.forEach(fn => fn(this.data));
   }
   subscribe(fn) { this.listeners.push(fn); }
+
+  syncFromApi(listings) {
+    this._apiListings = (listings || []).map(l => {
+      const n = { ...l };
+      if (l._id && !l.id) n.id = l._id;
+      if (typeof l.user === 'object' && l.user) {
+        n.userId = l.user._id || l.user.id || l.user;
+        n._owner = l.user;
+        if (l.user._id && !l.user.id) l.user.id = l.user._id;
+      } else { n.userId = l.user; }
+      if (l.createdAt) n.createdAt = new Date(l.createdAt).toISOString().split('T')[0];
+      if (n.available === undefined) n.available = true;
+      return n;
+    });
+    this._apiUsers = {};
+    this._apiListings.forEach(l => {
+      if (l._owner) { const u = l._owner; if (u._id && !u.id) u.id = u._id; this._apiUsers[l.userId] = u; }
+    });
+  }
+  invalidateApiCache() { this._apiListings = null; this._apiUsers = {}; }
 
   // Auth
   login(phone, type) {
@@ -115,11 +135,11 @@ class Store {
     }
     return this.data.currentUser;
   }
-  getUser(id) { return this.data.users.find(u => u.id === id); }
+  getUser(id) { if (window.APP?.mode === 'api' && this._apiUsers[id]) return this._apiUsers[id]; return this.data.users.find(u => u.id === id); }
 
   // Listings
   getListings(filters = {}, sort = 'recent') {
-    let items = this.data.listings.filter(l => l.available);
+    let items = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings.filter(l => l.available !== false) : this.data.listings.filter(l => l.available);
     if (filters.country) items = items.filter(l => l.country === filters.country);
     if (filters.city) items = items.filter(l => l.city === filters.city);
     if (filters.quarter) items = items.filter(l => l.quarter === filters.quarter);
@@ -135,16 +155,20 @@ class Store {
     return items;
   }
   getListing(id) {
+    if (window.APP?.mode === 'api' && this._apiListings) {
+      return this._apiListings.find(l => l.id === id || l._id === id) || null;
+    }
     const l = this.data.listings.find(l => l.id === id);
     if (l) { l.views = (l.views||0) + 1; this.save(); }
     return l;
   }
-  getUserListings(userId) { return this.data.listings.filter(l => l.userId === userId); }
+  getUserListings(userId) { if (window.APP?.mode === 'api' && this._apiListings) return this._apiListings.filter(l => l.userId === userId); return this.data.listings.filter(l => l.userId === userId); }
   getSimilarListings(listing, limit=4) {
-    return this.data.listings.filter(l => l.id !== listing.id && l.available && (l.category === listing.category || l.city === listing.city)).slice(0, limit);
+    const src = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings : this.data.listings;
+    return src.filter(l => l.id !== listing.id && l.available !== false && (l.category === listing.category || l.city === listing.city)).slice(0, limit);
   }
   getTrending(type='views', limit=6) {
-    const items = this.data.listings.filter(l => l.available);
+    const items = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings.filter(l => l.available !== false) : this.data.listings.filter(l => l.available);
     if (type === 'views') return [...items].sort((a,b) => (b.views||0) - (a.views||0)).slice(0,limit);
     if (type === 'rating') return [...items].sort((a,b) => this.getAvgRating(b.id) - this.getAvgRating(a.id)).slice(0,limit);
     if (type === 'new') return [...items].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).slice(0,limit);
@@ -152,13 +176,20 @@ class Store {
     return items.slice(0,limit);
   }
   addListing(listing) {
+    if (window.APP?.mode === 'api') {
+      return window.APP.api.createListing(listing).then(res => { this.invalidateApiCache(); return res.listing?.id || res.listing?._id; });
+    }
     const id = 'l'+Date.now();
     this.data.listings.push({ id, ...listing, createdAt:new Date().toISOString().split('T')[0], views:0 });
     this.save();
     return id;
   }
-  deleteListing(id) { this.data.listings = this.data.listings.filter(l => l.id !== id); this.save(); }
+  deleteListing(id) {
+    if (window.APP?.mode === 'api') { return window.APP.api.deleteListing(id).then(() => { this.invalidateApiCache(); }); }
+    this.data.listings = this.data.listings.filter(l => l.id !== id); this.save();
+  }
   updateListing(id, updates) {
+    if (window.APP?.mode === 'api') { return window.APP.api.updateListing(id, updates).then(res => { this.invalidateApiCache(); return res.listing; }); }
     const idx = this.data.listings.findIndex(l => l.id === id);
     if (idx > -1) { Object.assign(this.data.listings[idx], updates); this.save(); return this.data.listings[idx]; }
     return null;
@@ -188,7 +219,7 @@ class Store {
   }
 
   // Favorites
-  toggleFavorite(id) { const i = this.data.favorites.indexOf(id); if (i > -1) this.data.favorites.splice(i,1); else this.data.favorites.push(id); this.save(); }
+  toggleFavorite(id) { if (window.APP?.mode === 'api') { window.APP.api.toggleFavorite(id).catch(e => console.warn('Fav error', e)); } const i = this.data.favorites.indexOf(id); if (i > -1) this.data.favorites.splice(i,1); else this.data.favorites.push(id); this.save(); }
   isFavorite(id) { return this.data.favorites.includes(id); }
   getFavorites() { return this.data.listings.filter(l => this.data.favorites.includes(l.id)); }
 
@@ -201,8 +232,8 @@ class Store {
   markAllRead() { /* Notifications are generated dynamically, no persistent state needed for demo */ }
 
   // Stats
-  getStats() { return { totalListings:this.data.listings.length, totalUsers:this.data.users.length, cities:[...new Set(this.data.listings.map(l=>l.city))].length, countries:[...new Set(this.data.listings.map(l=>l.country))].length }; }
-  getAllQuarters() { return [...new Set(this.data.listings.map(l => l.quarter).filter(Boolean))]; }
+  getStats() { const listings = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings : this.data.listings; return { totalListings:listings.length, totalUsers:this.data.users.length, cities:[...new Set(listings.map(l=>l.city))].length, countries:[...new Set(listings.map(l=>l.country))].length }; }
+  getAllQuarters() { const listings = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings : this.data.listings; return [...new Set(listings.map(l => l.quarter).filter(Boolean))]; }
   reset() { localStorage.removeItem(STORE_KEY); this.data = JSON.parse(JSON.stringify(defaultData)); this.save(); }
 
   // Admin

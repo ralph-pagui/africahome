@@ -188,7 +188,7 @@ window.removeMedia = (idx, el) => {
   el.closest('.upload-thumb').remove();
 };
 
-window.handlePublish = (e) => {
+window.handlePublish = async (e) => {
   e.preventDefault();
   const user = store.getCurrentUser();
   const editId = document.getElementById('pub-edit-id')?.value;
@@ -246,13 +246,37 @@ window.handlePublish = (e) => {
     lng: parseFloat(document.getElementById('pub-lng').value) || null
   };
 
-  if (isEdit) {
-    store.updateListing(editId, listingData);
-    window.showToast('Annonce modifiée avec succès ! ✅', 'success');
+  if (window.APP?.mode === 'api') {
+    const btn = document.querySelector('#publish-form button[type=submit]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publication en cours...'; }
+    try {
+      if (isEdit) {
+        await window.APP.api.updateListing(editId, listingData);
+        window.showToast('Annonce modifi\u00e9e avec succ\u00e8s ! \u2705', 'success');
+      } else {
+        await window.APP.api.createListing(listingData);
+        window.showToast('Annonce publi\u00e9e avec succ\u00e8s ! \ud83c\udf89', 'success');
+      }
+      store.invalidateApiCache();
+      // Reload API data
+      try {
+        const data = await window.APP.api.getListings({ limit: 200 });
+        store.syncFromApi(data.listings || []);
+      } catch(e) {}
+    } catch (err) {
+      window.showToast('Erreur: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = isEdit ? '<i class="fas fa-save"></i> Enregistrer' : '<i class="fas fa-paper-plane"></i> Publier'; }
+      return;
+    }
   } else {
-    listingData.userId = user.id;
-    store.addListing(listingData);
-    window.showToast('Annonce publiée avec succès ! 🎉', 'success');
+    if (isEdit) {
+      store.updateListing(editId, listingData);
+      window.showToast('Annonce modifi\u00e9e avec succ\u00e8s ! \u2705', 'success');
+    } else {
+      listingData.userId = user.id;
+      store.addListing(listingData);
+      window.showToast('Annonce publi\u00e9e avec succ\u00e8s ! \ud83c\udf89', 'success');
+    }
   }
   
   window._publishMedia = [];
