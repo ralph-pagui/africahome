@@ -9,9 +9,14 @@ class Store {
       const s = localStorage.getItem(STORE_KEY);
       if (s) {
         const d = JSON.parse(s);
-        // Migration: ensure new fields exist
-        if (!d.reviews) d.reviews = defaultData.reviews;
-        if (d.listings && !d.listings[0]?.views) d.listings = defaultData.listings;
+        // Robust Migration & Fallbacks: ensure all expected fields exist
+        if (!d.users || !Array.isArray(d.users)) d.users = defaultData.users;
+        if (!d.listings || !Array.isArray(d.listings)) d.listings = defaultData.listings;
+        if (!d.reviews || !Array.isArray(d.reviews)) d.reviews = defaultData.reviews;
+        if (!d.favorites || !Array.isArray(d.favorites)) d.favorites = defaultData.favorites;
+        if (!d.notifications || !Array.isArray(d.notifications)) d.notifications = defaultData.notifications;
+        if (d.listings && d.listings.length > 0 && !d.listings[0]?.views) d.listings = defaultData.listings;
+
         // Sync: link currentUser to the same object reference in users array
         if (d.currentUser && d.users) {
           const match = d.users.find(u => u.id === d.currentUser.id);
@@ -219,9 +224,25 @@ class Store {
   }
 
   // Favorites
-  toggleFavorite(id) { if (window.APP?.mode === 'api') { window.APP.api.toggleFavorite(id).catch(e => console.warn('Fav error', e)); } const i = this.data.favorites.indexOf(id); if (i > -1) this.data.favorites.splice(i,1); else this.data.favorites.push(id); this.save(); }
-  isFavorite(id) { return this.data.favorites.includes(id); }
-  getFavorites() { return this.data.listings.filter(l => this.data.favorites.includes(l.id)); }
+  toggleFavorite(id) {
+    if (window.APP?.mode === 'api') {
+      window.APP.api.toggleFavorite(id).catch(e => console.warn('Fav error', e));
+    }
+    if (!this.data.favorites) this.data.favorites = [];
+    const i = this.data.favorites.indexOf(id);
+    if (i > -1) this.data.favorites.splice(i,1);
+    else this.data.favorites.push(id);
+    this.save();
+  }
+  isFavorite(id) {
+    const favs = this.data.favorites || [];
+    return favs.includes(id);
+  }
+  getFavorites() {
+    const favs = this.data.favorites || [];
+    const listings = this.data.listings || [];
+    return listings.filter(l => favs.includes(l.id));
+  }
 
   // Notifications (per-user)
   getNotifications() {
