@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `africahome-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
@@ -6,7 +6,6 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-  // Skip waiting to activate immediately
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -22,17 +21,43 @@ self.addEventListener('fetch', event => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API calls and external resources — don't cache them
   const url = new URL(event.request.url);
+  // Skip API calls and external resources — don't cache them
   if (url.pathname.startsWith('/api') || url.origin !== self.location.origin) return;
 
+  const isDocument = event.request.destination === 'document' || url.pathname === '/';
+  const isScript = event.request.destination === 'script';
+
+  // Network-First for HTML/JS to avoid old cached versions during redeployments
+  if (isDocument || isScript) {
+    event.respondWith(
+      fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then(cachedResponse => {
+            if (cachedResponse) return cachedResponse;
+            if (isDocument) return caches.match('/');
+            return new Response('', { status: 408, statusText: 'Offline' });
+          });
+        })
+    );
+    return;
+  }
+
+  // Cache-First for static assets (images, styles, fonts, icons)
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         if (response) return response;
-        // Network fetch with error handling
         return fetch(event.request).then(networkResponse => {
-          // Cache successful responses for static assets
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then(cache => {
@@ -43,10 +68,6 @@ self.addEventListener('fetch', event => {
         });
       })
       .catch(() => {
-        // If both cache and network fail, return a basic offline fallback
-        if (event.request.destination === 'document') {
-          return caches.match('/');
-        }
         return new Response('', { status: 408, statusText: 'Offline' });
       })
   );
