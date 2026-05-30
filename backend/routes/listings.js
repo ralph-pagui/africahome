@@ -61,6 +61,30 @@ router.get('/locations', async (req, res) => {
   }
 });
 
+// @route   GET /api/listings/public-stats
+// @desc    Get public statistics for home screen counters
+router.get('/public-stats', async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const totalListings = await Listing.countDocuments({ available: true });
+    const totalUsers = await User.countDocuments({});
+    
+    // Get unique city and country counts
+    const countries = await Listing.distinct('country', { available: true });
+    const cities = await Listing.distinct('city', { available: true });
+    
+    res.json({
+      success: true,
+      totalListings,
+      totalUsers,
+      cities: cities.length,
+      countries: countries.length
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // @route   GET /api/listings/user/mine
 // @desc    Get current user's listings
 // NOTE: This route MUST be before /:id to avoid "user" being matched as an id

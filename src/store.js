@@ -3,7 +3,13 @@ import { defaultData, getNotificationsForUser } from './data.js';
 const STORE_KEY = 'africahome_data';
 
 class Store {
-  constructor() { this.data = this.load(); this.listeners = []; this._apiListings = null; this._apiUsers = {}; }
+  constructor() {
+    this.data = this.load();
+    this.listeners = [];
+    this._apiListings = null;
+    this._apiUsers = {};
+    this._publicStats = { totalListings: 0, totalUsers: 0, cities: 0, countries: 0 };
+  }
   load() {
     try {
       const s = localStorage.getItem(STORE_KEY);
@@ -226,15 +232,20 @@ class Store {
   getUnreadCount() { return this.getNotifications().filter(n => !n.read).length; }
   markAllRead() { /* Dynamic notifications */ }
 
+  syncPublicStats(stats) {
+    if (stats) {
+      this._publicStats = {
+        totalListings: stats.totalListings || 0,
+        totalUsers: stats.totalUsers || 0,
+        cities: stats.cities || 0,
+        countries: stats.countries || 0
+      };
+    }
+  }
+
   // Stats
   getStats() {
-    const listings = this._apiListings || [];
-    return {
-      totalListings: listings.length,
-      totalUsers: 0,
-      cities: [...new Set(listings.map(l => l.city))].length,
-      countries: [...new Set(listings.map(l => l.country))].length
-    };
+    return this._publicStats;
   }
   getAllQuarters() {
     const listings = this._apiListings || [];

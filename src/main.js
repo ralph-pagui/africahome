@@ -29,15 +29,22 @@ import { renderCountryOptions } from './utils.js';
 // Make api and store globally available (always api mode for production)
 window.APP = { api, store, mode: 'api' };
 
-// Preload listings from backend API
+// Preload listings and public stats from backend API
 (async () => {
   try {
-    console.log('⏳ Chargement des annonces depuis le backend...');
-    const data = await window.APP.api.getListings({ limit: 200 });
-    store.syncFromApi(data.listings || []);
-    console.log(`✅ ${(data.listings || []).length} annonces chargées depuis le backend`);
+    console.log('⏳ Chargement des données de production...');
+    const [listingsData, statsData] = await Promise.all([
+      window.APP.api.getListings({ limit: 200 }),
+      window.APP.api.getPublicStats().catch(err => {
+        console.warn('⚠️ Échec chargement stats:', err.message);
+        return { totalListings: 0, totalUsers: 0, cities: 0, countries: 0 };
+      })
+    ]);
+    store.syncFromApi(listingsData.listings || []);
+    store.syncPublicStats(statsData);
+    console.log(`✅ Données chargées (annonces: ${(listingsData.listings || []).length}, utilisateurs: ${statsData.totalUsers})`);
   } catch (e) {
-    console.warn('⚠️ Échec du préchargement des annonces:', e.message);
+    console.warn('⚠️ Échec du préchargement des données:', e.message);
   } finally {
     checkGlobalPaymentCallback();
     router.start();

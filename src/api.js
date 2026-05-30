@@ -97,6 +97,10 @@ class API {
     return this.request(`/listings?${params.toString()}`);
   }
 
+  async getPublicStats() {
+    return this.request('/listings/public-stats');
+  }
+
   async getListing(id) {
     return this.request(`/listings/${id}`);
   }
