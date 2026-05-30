@@ -9,27 +9,16 @@ class Store {
       const s = localStorage.getItem(STORE_KEY);
       if (s) {
         const d = JSON.parse(s);
-        // Robust Migration & Fallbacks: ensure all expected fields exist
-        if (!d.users || !Array.isArray(d.users)) d.users = defaultData.users;
-        if (!d.listings || !Array.isArray(d.listings)) d.listings = defaultData.listings;
-        if (!d.reviews || !Array.isArray(d.reviews)) d.reviews = defaultData.reviews;
-        if (!d.favorites || !Array.isArray(d.favorites)) d.favorites = defaultData.favorites;
-        if (!d.notifications || !Array.isArray(d.notifications)) d.notifications = defaultData.notifications;
-        if (d.listings && d.listings.length > 0 && !d.listings[0]?.views) d.listings = defaultData.listings;
-
-        // Sync: link currentUser to the same object reference in users array
-        if (d.currentUser && d.users) {
-          const match = d.users.find(u => u.id === d.currentUser.id);
-          if (match) {
-            // Merge any subscription/payment data from currentUser into the users array entry
-            Object.assign(match, d.currentUser);
-            d.currentUser = match; // same reference now
-          }
-        }
+        // Force empty lists for listings, reviews, and users to ensure pure API mode
+        d.users = [];
+        d.listings = [];
+        d.reviews = [];
+        if (!d.favorites || !Array.isArray(d.favorites)) d.favorites = [];
+        if (!d.notifications || !Array.isArray(d.notifications)) d.notifications = [];
         return d;
       }
-      return JSON.parse(JSON.stringify(defaultData));
-    } catch { return JSON.parse(JSON.stringify(defaultData)); }
+      return { users: [], listings: [], reviews: [], favorites: [], notifications: [], currentUser: null };
+    } catch { return { users: [], listings: [], reviews: [], favorites: [], notifications: [], currentUser: null }; }
   }
   save() {
     // Sync: ensure currentUser changes are reflected in users array before saving
@@ -144,7 +133,7 @@ class Store {
 
   // Listings
   getListings(filters = {}, sort = 'recent') {
-    let items = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings.filter(l => l.available !== false) : this.data.listings.filter(l => l.available);
+    let items = (this._apiListings || []).filter(l => l.available !== false);
     if (filters.country) items = items.filter(l => l.country === filters.country);
     if (filters.city) items = items.filter(l => l.city === filters.city);
     if (filters.quarter) items = items.filter(l => l.quarter === filters.quarter);
@@ -160,20 +149,15 @@ class Store {
     return items;
   }
   getListing(id) {
-    if (window.APP?.mode === 'api' && this._apiListings) {
-      return this._apiListings.find(l => l.id === id || l._id === id) || null;
-    }
-    const l = this.data.listings.find(l => l.id === id);
-    if (l) { l.views = (l.views||0) + 1; this.save(); }
-    return l;
+    return (this._apiListings || []).find(l => l.id === id || l._id === id) || null;
   }
-  getUserListings(userId) { if (window.APP?.mode === 'api' && this._apiListings) return this._apiListings.filter(l => l.userId === userId); return this.data.listings.filter(l => l.userId === userId); }
+  getUserListings(userId) { return (this._apiListings || []).filter(l => l.userId === userId); }
   getSimilarListings(listing, limit=4) {
-    const src = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings : this.data.listings;
+    const src = this._apiListings || [];
     return src.filter(l => l.id !== listing.id && l.available !== false && (l.category === listing.category || l.city === listing.city)).slice(0, limit);
   }
   getTrending(type='views', limit=6) {
-    const items = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings.filter(l => l.available !== false) : this.data.listings.filter(l => l.available);
+    const items = (this._apiListings || []).filter(l => l.available !== false);
     if (type === 'views') return [...items].sort((a,b) => (b.views||0) - (a.views||0)).slice(0,limit);
     if (type === 'rating') return [...items].sort((a,b) => this.getAvgRating(b.id) - this.getAvgRating(a.id)).slice(0,limit);
     if (type === 'new') return [...items].sort((a,b) => b.createdAt.localeCompare(a.createdAt)).slice(0,limit);
@@ -181,23 +165,13 @@ class Store {
     return items.slice(0,limit);
   }
   addListing(listing) {
-    if (window.APP?.mode === 'api') {
-      return window.APP.api.createListing(listing).then(res => { this.invalidateApiCache(); return res.listing?.id || res.listing?._id; });
-    }
-    const id = 'l'+Date.now();
-    this.data.listings.push({ id, ...listing, createdAt:new Date().toISOString().split('T')[0], views:0 });
-    this.save();
-    return id;
+    return window.APP.api.createListing(listing).then(res => { this.invalidateApiCache(); return res.listing?.id || res.listing?._id; });
   }
   deleteListing(id) {
-    if (window.APP?.mode === 'api') { return window.APP.api.deleteListing(id).then(() => { this.invalidateApiCache(); }); }
-    this.data.listings = this.data.listings.filter(l => l.id !== id); this.save();
+    return window.APP.api.deleteListing(id).then(() => { this.invalidateApiCache(); });
   }
   updateListing(id, updates) {
-    if (window.APP?.mode === 'api') { return window.APP.api.updateListing(id, updates).then(res => { this.invalidateApiCache(); return res.listing; }); }
-    const idx = this.data.listings.findIndex(l => l.id === id);
-    if (idx > -1) { Object.assign(this.data.listings[idx], updates); this.save(); return this.data.listings[idx]; }
-    return null;
+    return window.APP.api.updateListing(id, updates).then(res => { this.invalidateApiCache(); return res.listing; });
   }
   isNew(listing) { const d = new Date(listing.createdAt); const now = new Date(); return (now - d) < 3*24*60*60*1000; }
 
@@ -240,22 +214,37 @@ class Store {
   }
   getFavorites() {
     const favs = this.data.favorites || [];
-    const listings = this.data.listings || [];
-    return listings.filter(l => favs.includes(l.id));
+    const listings = this._apiListings || [];
+    return listings.filter(l => favs.includes(l.id) || favs.includes(l._id));
   }
 
   // Notifications (per-user)
   getNotifications() {
-    const u = this.data.currentUser;
-    return getNotificationsForUser(u, this.data.listings);
+    const u = this.getCurrentUser();
+    return getNotificationsForUser(u, this._apiListings || []);
   }
   getUnreadCount() { return this.getNotifications().filter(n => !n.read).length; }
-  markAllRead() { /* Notifications are generated dynamically, no persistent state needed for demo */ }
+  markAllRead() { /* Dynamic notifications */ }
 
   // Stats
-  getStats() { const listings = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings : this.data.listings; return { totalListings:listings.length, totalUsers:this.data.users.length, cities:[...new Set(listings.map(l=>l.city))].length, countries:[...new Set(listings.map(l=>l.country))].length }; }
-  getAllQuarters() { const listings = (window.APP?.mode === 'api' && this._apiListings) ? this._apiListings : this.data.listings; return [...new Set(listings.map(l => l.quarter).filter(Boolean))]; }
-  reset() { localStorage.removeItem(STORE_KEY); this.data = JSON.parse(JSON.stringify(defaultData)); this.save(); }
+  getStats() {
+    const listings = this._apiListings || [];
+    return {
+      totalListings: listings.length,
+      totalUsers: 0,
+      cities: [...new Set(listings.map(l => l.city))].length,
+      countries: [...new Set(listings.map(l => l.country))].length
+    };
+  }
+  getAllQuarters() {
+    const listings = this._apiListings || [];
+    return [...new Set(listings.map(l => l.quarter).filter(Boolean))];
+  }
+  reset() {
+    localStorage.removeItem(STORE_KEY);
+    this.data = { users: [], listings: [], reviews: [], favorites: [], notifications: [], currentUser: null };
+    this.save();
+  }
 
   // Admin
   getAllUsers() { return this.data.users || []; }

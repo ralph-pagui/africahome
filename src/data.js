@@ -1,8 +1,6 @@
 // Realistic demo data for AfricaHome (Empty for Production)
 export const defaultData = {
-  users: [
-    { id:'admin', type:'admin', name:'Admin AfricaHome', phone:'000000000', email:'admin@africahome.com', verified:true, joinDate:'2025-01-01' }
-  ],
+  users: [],
   listings: [],
   reviews: [],
   favorites: [],

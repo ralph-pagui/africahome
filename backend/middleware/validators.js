@@ -75,7 +75,7 @@ const loginRules = [
     .withMessage('Le mot de passe est requis'),
   body('type')
     .optional()
-    .isIn(['bailleur', 'locataire', 'professionnel'])
+    .isIn(['bailleur', 'locataire', 'professionnel', 'admin'])
     .withMessage('Type de compte invalide'),
 ];
 

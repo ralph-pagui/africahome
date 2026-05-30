@@ -16,14 +16,14 @@ connectDB().then(async () => {
       await User.create({
         type: 'admin',
         name: 'Admin AfricaHome',
-        phone: '000000000',
+        phone: '+237000000000',
         email: 'admin@africahome.com',
         password: 'admin2026',
         country: 'Cameroun',
         city: 'Douala',
         verified: true
       });
-      console.log('🛡️ Compte admin créé automatiquement (phone: 000000000, mot de passe: admin2026)');
+      console.log('🛡️ Compte admin créé automatiquement (phone: +237000000000, mot de passe: admin2026)');
     }
   } catch (err) {
     console.log('ℹ️ Admin check:', err.message);

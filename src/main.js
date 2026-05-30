@@ -26,32 +26,18 @@ import { signInWithGoogle } from './firebase-auth.js';
 import { renderPhoneInput, getPhoneInputValue } from './components/phone-input.js';
 import { renderCountryOptions } from './utils.js';
 
-// Make api and store globally available
-window.APP = { api, store, mode: 'demo' };
+// Make api and store globally available (always api mode for production)
+window.APP = { api, store, mode: 'api' };
 
-// Try to detect backend
+// Preload listings from backend API
 (async () => {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL;
-    if (apiUrl) {
-      const res = await fetch(apiUrl + '/health');
-      if (res.ok) {
-        window.APP.mode = 'api';
-        console.log('✅ Mode API - Backend connecté');
-        // Preload listings from API for all pages
-        try {
-          const data = await window.APP.api.getListings({ limit: 200 });
-          store.syncFromApi(data.listings || []);
-          console.log(`📦 ${(data.listings || []).length} annonces chargées depuis le backend`);
-        } catch (e) {
-          console.warn('⚠️ Échec du préchargement des annonces:', e.message);
-        }
-      }
-    } else {
-      console.log('ℹ️ Mode DEMO - Pas de VITE_API_URL configuré, utilisation de localStorage');
-    }
-  } catch {
-    console.log('ℹ️ Mode DEMO - Backend non disponible, utilisation de localStorage');
+    console.log('⏳ Chargement des annonces depuis le backend...');
+    const data = await window.APP.api.getListings({ limit: 200 });
+    store.syncFromApi(data.listings || []);
+    console.log(`✅ ${(data.listings || []).length} annonces chargées depuis le backend`);
+  } catch (e) {
+    console.warn('⚠️ Échec du préchargement des annonces:', e.message);
   } finally {
     checkGlobalPaymentCallback();
     router.start();
