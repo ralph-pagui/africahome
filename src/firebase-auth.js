@@ -255,3 +255,6 @@ const showGoogleMockPopup = (resolve, reject) => {
     });
   };
 };
+
+// Eagerly preload and initialize Firebase on startup to prevent popup blocker issues
+initFirebase().catch(() => {});
