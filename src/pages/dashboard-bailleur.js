@@ -16,7 +16,10 @@ export function renderDashboardBailleur() {
           <h1>👋 Bonjour, ${user.name}</h1>
           <p style="color:var(--gray);font-size:.9rem">Tableau de bord Bailleur</p>
         </div>
-        <a href="#/publish" class="btn btn-primary"><i class="fas fa-plus"></i> Nouvelle Annonce</a>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="window.showSettingsModal()"><i class="fas fa-cog"></i> Paramètres</button>
+          <a href="#/publish" class="btn btn-primary"><i class="fas fa-plus"></i> Nouvelle Annonce</a>
+        </div>
       </div>
       
       <div class="stat-cards">

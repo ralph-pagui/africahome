@@ -76,6 +76,7 @@ export function renderDashboardAdmin() {
           <p style="color:var(--gray);font-size:.9rem">Gestion complète de la plateforme AfricaHome</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="window.showSettingsModal()"><i class="fas fa-cog"></i> Paramètres</button>
           <button class="btn btn-outline btn-sm" onclick="window.adminRefreshData()"><i class="fas fa-sync-alt"></i> Rafraîchir</button>
           <button class="btn btn-outline btn-sm" onclick="window.adminExport()"><i class="fas fa-download"></i> Exporter</button>
           <button class="btn btn-sm" style="background:#c62828;color:#fff;border:none;border-radius:var(--radius-sm);font-size:.8rem;padding:6px 12px" onclick="window.adminPurgeDemoData()"><i class="fas fa-trash-alt"></i> Purger les données démo</button>

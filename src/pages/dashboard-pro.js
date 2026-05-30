@@ -39,7 +39,10 @@ export function renderDashboardPro() {
           <h1>🏢 ${user.structureName || user.name}</h1>
           <p style="color:var(--gray);font-size:.9rem">${user.verified ? 'Compte Professionnel Vérifié ✅' : 'Compte en attente de vérification ⏳'}</p>
         </div>
-        <a href="#/publish" class="btn btn-primary"><i class="fas fa-plus"></i> Publier</a>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="window.showSettingsModal()"><i class="fas fa-cog"></i> Paramètres</button>
+          <a href="#/publish" class="btn btn-primary"><i class="fas fa-plus"></i> Publier</a>
+        </div>
       </div>
 
       <!-- VERIFICATION STATUS CARD -->

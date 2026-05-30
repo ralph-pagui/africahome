@@ -320,3 +320,130 @@ window.showGoogleLinkConfirmationModal = (googleData, message) => {
     }
   };
 };
+
+// =====================================================
+// GLOBAL USER SETTINGS / PROFILE MODAL HANDLER
+// =====================================================
+window.showSettingsModal = () => {
+  const user = window.APP?.store?.getCurrentUser();
+  if (!user) return;
+
+  const root = document.getElementById('modal-root');
+  const isPro = user.type === 'professionnel';
+  
+  root.innerHTML = `
+  <div class="modal-overlay" onclick="if(event.target===this)this.innerHTML=''" style="z-index:2000">
+    <div class="modal" style="max-width:550px;width:95%;border-radius:16px;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,0.15)">
+      <h3 style="margin:0 0 8px;font-size:1.3rem;font-weight:700;display:flex;align-items:center;gap:10px;color:#1a1a2e">
+        <i class="fas fa-cog" style="color:var(--orange)"></i> Paramètres du Compte
+      </h3>
+      <p style="font-size:.85rem;color:var(--gray);margin-bottom:20px">
+        Modifiez vos informations personnelles et sécurisez votre accès.
+      </p>
+
+      <form onsubmit="window.submitUserSettings(event)" id="settings-form" style="display:flex;flex-direction:column;gap:14px">
+        <div class="form-row" style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>${isPro ? 'Raison Sociale / Nom Structure *' : 'Nom Complet *'}</label>
+            <input type="text" id="settings-name" value="${isPro ? (user.structureName || user.name) : user.name}" required style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem" />
+          </div>
+          ${isPro ? `
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>Nom du Représentant *</label>
+            <input type="text" id="settings-representative" value="${user.representativeName || ''}" required style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem" />
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="form-row" style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>Adresse Email</label>
+            <input type="email" id="settings-email" value="${user.email || ''}" style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem" />
+          </div>
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>Numéro WhatsApp</label>
+            <input type="text" id="settings-whatsapp" value="${user.whatsapp || user.phone || ''}" style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem" />
+          </div>
+        </div>
+
+        <div class="form-row" style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>Pays</label>
+            <select id="settings-country" style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem">
+              <option value="Cameroun" ${user.country === 'Cameroun' ? 'selected' : ''}>Cameroun</option>
+              <option value="Sénégal" ${user.country === 'Sénégal' ? 'selected' : ''}>Sénégal</option>
+              <option value="Côte d'Ivoire" ${user.country === "Côte d'Ivoire" ? 'selected' : ''}>Côte d'Ivoire</option>
+              <option value="RD Congo" ${user.country === 'RD Congo' ? 'selected' : ''}>RD Congo</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label>Ville</label>
+            <input type="text" id="settings-city" value="${user.city || ''}" style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Quartier</label>
+          <input type="text" id="settings-quarter" value="${user.quarter || ''}" style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem" />
+        </div>
+
+        <div style="margin:10px 0 0;padding-top:16px;border-top:1px dashed #eee">
+          <h4 style="margin:0 0 10px;font-size:.9rem;font-weight:700;color:#1a1a2e">🔑 Sécurité</h4>
+          <div class="form-group">
+            <label>Nouveau mot de passe</label>
+            <input type="password" id="settings-password" placeholder="Laisser vide pour ne pas modifier" style="width:100%;padding:11px 12px;background:#f9f9f9;border:1.5px solid #e0e0e0;border-radius:8px;font-size:.9rem" />
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('modal-root').innerHTML=''">Annuler</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="settings-submit"><i class="fas fa-save"></i> Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+
+  window.submitUserSettings = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('settings-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
+
+    try {
+      const payload = {
+        name: document.getElementById('settings-name').value,
+        email: document.getElementById('settings-email').value || '',
+        whatsapp: document.getElementById('settings-whatsapp').value || '',
+        country: document.getElementById('settings-country').value,
+        city: document.getElementById('settings-city').value || '',
+        quarter: document.getElementById('settings-quarter').value || ''
+      };
+
+      if (isPro) {
+        payload.structureName = document.getElementById('settings-name').value;
+        payload.representativeName = document.getElementById('settings-representative').value;
+      }
+
+      const newPwd = document.getElementById('settings-password').value;
+      if (newPwd) {
+        if (newPwd.length < 6) {
+          throw new Error('Le mot de passe doit faire au moins 6 caractères');
+        }
+        payload.password = newPwd;
+      }
+
+      await window.APP.store.updateProfile(payload);
+      
+      window.showToast('Profil mis à jour avec succès !', 'success');
+      document.getElementById('modal-root').innerHTML = '';
+      
+      // Reload current page to see updated name
+      window.dispatchEvent(new Event('hashchange'));
+    } catch (err) {
+      window.showToast(err.message || 'Erreur lors de la mise à jour', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> Enregistrer';
+    }
+  };
+};
+

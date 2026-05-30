@@ -90,6 +90,18 @@ class API {
     return data.user;
   }
 
+  async updateProfile(profileData) {
+    const data = await this.request('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    });
+    if (data.user && data.user._id && !data.user.id) data.user.id = data.user._id;
+    this.user = data.user;
+    localStorage.setItem('ah_user', JSON.stringify(data.user));
+    this.notify();
+    return data.user;
+  }
+
   // ============= LISTINGS =============
   async getListings(filters = {}) {
     const params = new URLSearchParams();

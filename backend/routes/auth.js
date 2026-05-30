@@ -105,14 +105,36 @@ router.get('/me', protect, async (req, res) => {
 // @route   PUT /api/auth/me
 // @desc    Update user profile
 router.put('/me', protect, async (req, res) => {
-  const fields = ['name', 'email', 'whatsapp', 'country', 'city', 'quarter',
-                  'structureName', 'niu', 'representativeName', 'cniNumber',
-                  'officialDocUrl', 'cniPhotoUrl'];
-  const updates = {};
-  fields.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+    }
 
-  const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
-  res.json({ success: true, user });
+    const fields = ['name', 'email', 'whatsapp', 'country', 'city', 'quarter',
+                    'structureName', 'niu', 'representativeName', 'cniNumber',
+                    'officialDocUrl', 'cniPhotoUrl'];
+    
+    fields.forEach(f => {
+      if (req.body[f] !== undefined) user[f] = req.body[f];
+    });
+
+    if (req.body.password) {
+      if (req.body.password.length < 6) {
+        return res.status(400).json({ success: false, message: 'Le mot de passe doit contenir au moins 6 caractères' });
+      }
+      user.password = req.body.password;
+    }
+
+    await user.save();
+
+    const userObj = user.toObject();
+    delete userObj.password;
+
+    res.json({ success: true, user: userObj });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // @route   POST /api/auth/google-auth

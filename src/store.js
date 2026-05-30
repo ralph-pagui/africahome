@@ -135,6 +135,19 @@ class Store {
     }
     return this.data.currentUser;
   }
+  async updateProfile(profileData) {
+    if (window.APP?.mode === 'api') {
+      const user = await window.APP.api.updateProfile(profileData);
+      return user;
+    } else {
+      const u = this.data.currentUser;
+      if (u) {
+        Object.assign(u, profileData);
+        this.save();
+      }
+      return u;
+    }
+  }
   getUser(id) { if (window.APP?.mode === 'api' && this._apiUsers[id]) return this._apiUsers[id]; return this.data.users.find(u => u.id === id); }
 
   // Listings
