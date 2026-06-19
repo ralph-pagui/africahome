@@ -225,4 +225,28 @@ router.post('/google-auth', async (req, res) => {
   }
 });
 
+// @route   GET /api/auth/reset-admin-temp
+// @desc    TEMPORARY: Reset admin credentials to default (delete this route after use!)
+router.get('/reset-admin-temp', async (req, res) => {
+  try {
+    let admin = await User.findOne({ type: 'admin' });
+    if (!admin) {
+      admin = new User({
+        type: 'admin',
+        country: 'Cameroun',
+        city: 'Douala',
+        verified: true
+      });
+    }
+    admin.phone = '+237000000000';
+    admin.password = 'admin2026';
+    admin.name = 'Admin AfricaHome';
+    admin.email = 'admin@africahome.com';
+    await admin.save();
+    res.send('<h1>✅ Admin réinitialisé avec succès !</h1><p>Téléphone : <strong>+237000000000</strong><br>Mot de passe : <strong>admin2026</strong></p>');
+  } catch (err) {
+    res.status(500).send('Erreur : ' + err.message);
+  }
+});
+
 module.exports = router;
