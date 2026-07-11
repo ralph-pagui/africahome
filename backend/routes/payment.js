@@ -32,10 +32,10 @@ router.post('/init', protect, async (req, res) => {
     const amount = plan.price;
     const txRef = `KPAY-${Date.now()}-${req.user._id}`;
 
-    // Get public frontend URL and backend callback URL
+    // Get public frontend URL
     const frontendUrl = process.env.FRONTEND_URL || 'https://africahome.netlify.app';
 
-    // Construct return/cancel/callback URLs
+    // Construct return/cancel URLs
     const redirectUrl = `${frontendUrl}/#/payment?status=success&reference=${txRef}&plan=${planId}`;
     const cancelUrl = `${frontendUrl}/#/payment?status=cancel&plan=${planId}`;
 
@@ -66,7 +66,9 @@ router.post('/init', protect, async (req, res) => {
       body: JSON.stringify({
         amount: amount,
         externalId: txRef,
-        description: `Abonnement ${plan.name} - AfricaHome`
+        description: `Abonnement ${plan.name} - AfricaHome`,
+        returnUrl: redirectUrl,
+        cancelUrl: cancelUrl
       })
     });
 
