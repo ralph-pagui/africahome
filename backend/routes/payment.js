@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const { protect } = require('../middleware/auth');
@@ -56,28 +57,21 @@ router.post('/init', protect, async (req, res) => {
       status: 'pending'
     });
 
-    const kpayResponse = await fetch('https://admin.kpay.site/api/v1/payments/init', {
-      method: 'POST',
+    const kpayResponse = await axios.post('https://admin.kpay.site/api/v1/payments/init', {
+      amount: amount,
+      externalId: txRef,
+      description: `Abonnement ${plan.name} - AfricaHome`,
+      returnUrl: redirectUrl,
+      cancelUrl: cancelUrl
+    }, {
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': kpayApiKey,
         'X-Secret-Key': kpaySecretKey
-      },
-      body: JSON.stringify({
-        amount: amount,
-        externalId: txRef,
-        description: `Abonnement ${plan.name} - AfricaHome`,
-        returnUrl: redirectUrl,
-        cancelUrl: cancelUrl
-      })
+      }
     });
 
-    const kpayData = await kpayResponse.json();
-
-    if (!kpayResponse.ok) {
-      console.error('[KPay Init Error Response]', kpayData);
-      throw new Error(kpayData.message || 'Erreur lors de l\'initialisation du paiement chez KPay');
-    }
+    const kpayData = kpayResponse.data;
 
     // Extract checkout/payment URL from KPay's response
     const paymentUrl = kpayData.paymentUrl || kpayData.checkoutUrl || kpayData.url || kpayData.link || kpayData.redirectUrl;
@@ -93,8 +87,8 @@ router.post('/init', protect, async (req, res) => {
       reference: txRef
     });
   } catch (error) {
-    console.error('[KPay Init Exception]', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[KPay Init Exception]', error.response ? error.response.data : error.message);
+    res.status(500).json({ success: false, message: error.response?.data?.message || error.message });
   }
 });
 
@@ -137,16 +131,16 @@ router.post('/confirm', protect, async (req, res) => {
 
       console.log(`[KPay Confirm] Verifying transaction status for ${reference}...`);
 
-      const verifyRes = await fetch(`https://admin.kpay.site/api/v1/payments/${reference}`, {
+      const verifyRes = await axios.get(`https://admin.kpay.site/api/v1/payments/${reference}`, {
         headers: {
           'X-API-Key': kpayApiKey,
           'X-Secret-Key': kpaySecretKey
         }
       });
 
-      const verifyData = await verifyRes.json();
+      const verifyData = verifyRes.data;
       
-      if (verifyRes.ok && verifyData) {
+      if (verifyData) {
         const status = (verifyData.status || verifyData.state || '').toLowerCase();
         if (status === 'success' || status === 'successful' || status === 'completed' || status === 'paid' || status === 'approved') {
           paymentVerified = true;
@@ -154,11 +148,9 @@ router.post('/confirm', protect, async (req, res) => {
         } else {
           console.warn(`[KPay Confirm] Transaction ${reference} status is: ${status}`);
         }
-      } else {
-        console.warn(`[KPay Confirm] Verification failed with status code ${verifyRes.status}`, verifyData);
       }
     } catch (err) {
-      console.warn('[KPay Verification Bypass / Failure]', err.message);
+      console.warn('[KPay Verification Bypass / Failure]', err.response ? err.response.data : err.message);
       // Fallback: we trust client-side redirection since webhook verification will secure it asynchronously
       paymentVerified = true; 
     }
