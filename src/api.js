@@ -171,10 +171,10 @@ class API {
   }
 
   // ============= PAYMENTS =============
-  async initPayment(plan) {
-    return this.request('/payments/init', {
+  async initPayment(planId) {
+    return this.request('/payment/init', {
       method: 'POST',
-      body: JSON.stringify({ plan })
+      body: JSON.stringify({ planId })
     });
   }
 

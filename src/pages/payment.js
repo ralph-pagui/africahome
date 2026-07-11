@@ -1,14 +1,13 @@
 import { store } from '../store.js';
 
-// Selar.co product configuration
-const SELAR_CONFIG = {
-  baseUrl: 'https://selar.co',
+// KPay product configuration
+const KPAY_CONFIG = {
   products: {
-    'locataire-access':  { slug: '2d9m57h7p4', name: 'Accès Locataire',        price: 1500,   type: 'one-time', duration: 0 },
-    'bailleur-monthly':  { slug: '0169mh1uh6', name: 'Bailleur Mensuel',       price: 2500,   type: 'monthly',  duration: 30 },
-    'bailleur-annual':   { slug: '1914971px8',  name: 'Bailleur Annuel',        price: 15000,  type: 'annual',   duration: 365 },
-    'pro-monthly':       { slug: '22jt717lw2',  name: 'Professionnel Mensuel',  price: 15000,  type: 'monthly',  duration: 30 },
-    'pro-annual':        { slug: '77y15n4173',  name: 'Professionnel Annuel',   price: 120000, type: 'annual',   duration: 365 }
+    'locataire-access':  { name: 'Accès Locataire',        price: 1500,   type: 'one-time', duration: 0 },
+    'bailleur-monthly':  { name: 'Bailleur Mensuel',       price: 2500,   type: 'monthly',  duration: 30 },
+    'bailleur-annual':   { name: 'Bailleur Annuel',        price: 15000,  type: 'annual',   duration: 365 },
+    'pro-monthly':       { name: 'Professionnel Mensuel',  price: 15000,  type: 'monthly',  duration: 30 },
+    'pro-annual':        { name: 'Professionnel Annuel',   price: 120000, type: 'annual',   duration: 365 }
   }
 };
 
@@ -16,13 +15,10 @@ const SELAR_CONFIG = {
 function getSubPrice(user) {
   const sub = user?.subscription;
   if (!sub) return 0;
-  // Use stored price if available
   if (sub.price) return sub.price;
-  // Fallback: lookup from planId
-  if (sub.planId && SELAR_CONFIG.products[sub.planId]) {
-    return SELAR_CONFIG.products[sub.planId].price;
+  if (sub.planId && KPAY_CONFIG.products[sub.planId]) {
+    return KPAY_CONFIG.products[sub.planId].price;
   }
-  // Last fallback: guess from plan type and user type
   if (user.type === 'locataire') return 1500;
   if (user.type === 'bailleur') return sub.plan === 'annual' ? 15000 : 2500;
   if (user.type === 'professionnel') return sub.plan === 'annual' ? 120000 : 15000;
@@ -33,8 +29,8 @@ function getSubName(user) {
   const sub = user?.subscription;
   if (!sub) return 'Aucun';
   if (sub.planName) return sub.planName;
-  if (sub.planId && SELAR_CONFIG.products[sub.planId]) {
-    return SELAR_CONFIG.products[sub.planId].name;
+  if (sub.planId && KPAY_CONFIG.products[sub.planId]) {
+    return KPAY_CONFIG.products[sub.planId].name;
   }
   if (sub.plan === 'annual') return 'Annuel';
   if (sub.plan === 'monthly') return 'Mensuel';
@@ -46,19 +42,19 @@ function getPlansForUser(user) {
   if (!user) return [];
   if (user.type === 'locataire') {
     return [
-      { id: 'locataire-access', ...SELAR_CONFIG.products['locataire-access'] }
+      { id: 'locataire-access', ...KPAY_CONFIG.products['locataire-access'] }
     ];
   }
   if (user.type === 'bailleur') {
     return [
-      { id: 'bailleur-monthly', ...SELAR_CONFIG.products['bailleur-monthly'] },
-      { id: 'bailleur-annual', ...SELAR_CONFIG.products['bailleur-annual'] }
+      { id: 'bailleur-monthly', ...KPAY_CONFIG.products['bailleur-monthly'] },
+      { id: 'bailleur-annual', ...KPAY_CONFIG.products['bailleur-annual'] }
     ];
   }
   if (user.type === 'professionnel') {
     return [
-      { id: 'pro-monthly', ...SELAR_CONFIG.products['pro-monthly'] },
-      { id: 'pro-annual', ...SELAR_CONFIG.products['pro-annual'] }
+      { id: 'pro-monthly', ...KPAY_CONFIG.products['pro-monthly'] },
+      { id: 'pro-annual', ...KPAY_CONFIG.products['pro-annual'] }
     ];
   }
   return [];
@@ -82,7 +78,7 @@ export function renderPayment() {
     <div class="auth-card" style="max-width:560px">
       <div style="text-align:center;margin-bottom:20px"><img src="/logo.jpg" style="width:60px;height:60px;border-radius:50%;margin:0 auto;object-fit:cover" /></div>
       <h2>💳 Paiement Sécurisé</h2>
-      <p class="subtitle">Activez votre abonnement AfricaHome via Selar</p>
+      <p class="subtitle">Activez votre abonnement AfricaHome via KPay</p>
 
       ${isActive ? `
       <!-- Current subscription info -->
@@ -131,14 +127,11 @@ export function renderPayment() {
         </div>
       </div>
 
-
-
       <div id="pay-error" style="color:#ef5350;font-size:.85rem;margin-bottom:10px;display:none"></div>
       <button class="btn btn-primary btn-block btn-lg" id="pay-btn" onclick="window.handlePayment()" style="font-size:1rem;padding:16px">
-        <i class="fas fa-lock"></i> Payer via Selar
+        <i class="fas fa-lock"></i> Payer via KPay
       </button>
-      <p style="text-align:center;margin-top:10px;font-size:.72rem;color:var(--gray)">🔒 Paiement sécurisé par <strong>Selar.co</strong> · Mobile Money, Carte bancaire</p>
-
+      <p style="text-align:center;margin-top:10px;font-size:.72rem;color:var(--gray)">🔒 Paiement sécurisé par <strong>KPay</strong> · Mobile Money, Carte bancaire</p>
 
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee">
         <div style="display:flex;align-items:center;gap:8px;justify-content:center">
@@ -157,27 +150,24 @@ window.selectPlan = (label) => {
   label.querySelector('input').checked = true;
 };
 
-// Handle payment — ALWAYS redirect to Selar
+// Handle payment — Call backend to init payment, then redirect to KPay
 window.handlePayment = async () => {
   const planId = document.querySelector('[name=plan]:checked')?.value;
   const btn = document.getElementById('pay-btn');
   const errorEl = document.getElementById('pay-error');
   if (!planId) return;
 
-  const plan = SELAR_CONFIG.products[planId];
+  const plan = KPAY_CONFIG.products[planId];
   if (!plan) return;
 
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirection vers Selar...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirection vers KPay...';
   btn.disabled = true;
   errorEl.style.display = 'none';
 
   try {
-    if (!plan.slug) {
-      throw new Error('Ce plan n\'est pas encore configuré. Contactez l\'administrateur.');
-    }
-
-    // Store pending payment info BEFORE redirecting to Selar
     const user = store.getCurrentUser();
+    
+    // Store pending payment info BEFORE calling the backend
     localStorage.setItem('ah_pending_payment', JSON.stringify({
       planId,
       userId: user?.id || null,
@@ -185,18 +175,32 @@ window.handlePayment = async () => {
       timestamp: Date.now()
     }));
 
-    // Redirect to Selar checkout page
-    const selarUrl = `${SELAR_CONFIG.baseUrl}/${plan.slug}`;
-    window.location.href = selarUrl;
+    // Call backend API to initialize payment session on KPay
+    let apiResponse;
+    if (window.APP?.mode === 'api') {
+      apiResponse = await window.APP.api.initPayment(planId);
+    } else {
+      // Simulate API call in offline/demo mode (auto-activate subscription for local preview)
+      setTimeout(() => {
+        window.location.search = `?status=success&reference=DEMO-KPAY-${Date.now()}&plan=${planId}`;
+        checkGlobalPaymentCallback();
+      }, 1000);
+      return;
+    }
+
+    if (apiResponse && apiResponse.paymentUrl) {
+      // Redirect to KPay checkout portal
+      window.location.href = apiResponse.paymentUrl;
+    } else {
+      throw new Error('Impossible de générer le lien de paiement. Veuillez réessayer.');
+    }
   } catch (error) {
     errorEl.textContent = error.message;
     errorEl.style.display = 'block';
-    btn.innerHTML = '<i class="fas fa-lock"></i> Payer via Selar';
+    btn.innerHTML = '<i class="fas fa-lock"></i> Payer via KPay';
     btn.disabled = false;
   }
 };
-
-
 
 // ============= GLOBAL PAYMENT CALLBACK =============
 export function checkGlobalPaymentCallback() {
@@ -209,7 +213,7 @@ export function checkGlobalPaymentCallback() {
 
   // 1. Check for cancel/failure statuses
   const statusVal = (searchParams.get('status') || hashParams.get('status') ||
-                     searchParams.get('selar_status') || hashParams.get('selar_status') ||
+                     searchParams.get('kpay_status') || hashParams.get('kpay_status') ||
                      searchParams.get('payment') || hashParams.get('payment') || '').toLowerCase();
 
   if (statusVal === 'failed' || statusVal === 'cancelled' || statusVal === 'cancel') {
@@ -218,7 +222,7 @@ export function checkGlobalPaymentCallback() {
     return;
   }
 
-  // 2. Detect Selar return
+  // 2. Detect KPay return
   const reference = searchParams.get('reference') || hashParams.get('reference');
   const trxref = searchParams.get('trxref') || hashParams.get('trxref') || searchParams.get('transaction_id') || hashParams.get('transaction_id');
   const hasSuccessStatus = statusVal === 'success';
@@ -255,7 +259,7 @@ export function checkGlobalPaymentCallback() {
     return;
   }
 
-  const plan = SELAR_CONFIG.products[planId];
+  const plan = KPAY_CONFIG.products[planId];
   if (!plan) {
     window.showToast?.('⚠️ Plan inconnu. Contactez le support.', 'error');
     cleanPaymentUrl();
@@ -287,6 +291,7 @@ export function checkGlobalPaymentCallback() {
         window.showToast?.('❌ Échec : ' + err.message, 'error');
       });
   } else {
+    // Offline demo mode confirmation
     const now = new Date();
     const endDate = new Date(now);
     if (plan.duration) endDate.setDate(endDate.getDate() + plan.duration);
@@ -308,13 +313,14 @@ export function checkGlobalPaymentCallback() {
       planName: plan.name,
       amount: plan.price,
       date: now.toISOString(),
-      method: 'selar_return'
+      method: 'kpay_return',
+      reference: reference || 'demo-ref'
     });
 
     store.save();
     window.showToast?.(`✅ Paiement de ${formatPrice(plan.price)} FCFA confirmé ! Abonnement ${plan.name} activé.`, 'success');
 
-    const dash = user.type === 'bailleur' ? '/dashboard-bailleur' : user.type === 'professionnel' ? '/dashboard-pro' : '/dashboard-locataire';
+    const dash = user.type === 'bailleur' ? '/dashboard-bailleur' : user.type === 'professionnel' ? '/dashboard-pro' : user.type === 'locataire' ? '/dashboard-locataire' : '';
     setTimeout(() => {
       window.location.hash = '#' + dash;
       window.dispatchEvent(new Event('hashchange'));
@@ -334,7 +340,7 @@ function cleanPaymentUrl() {
 window.addEventListener('pageshow', () => {
   const btn = document.getElementById('pay-btn');
   if (btn) {
-    btn.innerHTML = '<i class="fas fa-lock"></i> Payer via Selar';
+    btn.innerHTML = '<i class="fas fa-lock"></i> Payer via KPay';
     btn.disabled = false;
   }
 });

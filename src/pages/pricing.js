@@ -5,7 +5,7 @@ export function renderPricing() {
   const isLogged = !!user;
 
   return `
-  <div class="page-header"><h1>💳 Nos Tarifs</h1><p>Des plans adaptés à tous les profils · Paiement sécurisé via Selar</p></div>
+  <div class="page-header"><h1>💳 Nos Tarifs</h1><p>Des plans adaptés à tous les profils · Paiement sécurisé via KPay</p></div>
   <section class="section">
     <div class="container">
       <div class="pricing-grid">
@@ -95,8 +95,8 @@ export function renderPricing() {
       <!-- PAYMENT METHODS -->
       <div style="text-align:center;margin-top:48px">
         <div class="detail-section" style="max-width:600px;margin:0 auto">
-          <h3><i class="fas fa-shield-alt" style="color:var(--green);margin-right:8px"></i>Paiement Sécurisé via Selar</h3>
-          <p style="font-size:.85rem;color:var(--gray);margin:12px 0 20px">Tous les paiements sont traités de manière sécurisée par Selar.co</p>
+          <h3><i class="fas fa-shield-alt" style="color:var(--green);margin-right:8px"></i>Paiement Sécurisé via KPay</h3>
+          <p style="font-size:.85rem;color:var(--gray);margin:12px 0 20px">Tous les paiements sont traités de manière sécurisée par KPay</p>
           <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap">
             <div style="text-align:center"><div style="font-size:2rem">🟠</div><div style="font-size:.85rem;color:var(--text);margin-top:4px">Orange Money</div></div>
             <div style="text-align:center"><div style="font-size:2rem">🟡</div><div style="font-size:.85rem;color:var(--text);margin-top:4px">MTN MoMo</div></div>

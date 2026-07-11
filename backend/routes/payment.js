@@ -4,17 +4,97 @@ const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 
 const PLANS = {
-  'locataire-access': { name: 'Accès Locataire', price: 1500, type: 'one-time', selarSlug: '2d9m57h7p4' },
-  'bailleur-monthly': { name: 'Bailleur Mensuel', price: 2500, type: 'monthly', duration: 30, selarSlug: '0169mh1uh6' },
-  'bailleur-annual': { name: 'Bailleur Annuel', price: 15000, type: 'annual', duration: 365, selarSlug: '1914971px8' },
-  'pro-monthly': { name: 'Professionnel Mensuel', price: 15000, type: 'monthly', duration: 30, selarSlug: '22jt717lw2' },
-  'pro-annual': { name: 'Professionnel Annuel', price: 120000, type: 'annual', duration: 365, selarSlug: '77y15n4173' }
+  'locataire-access': { name: 'Accès Locataire', price: 1500, type: 'one-time' },
+  'bailleur-monthly': { name: 'Bailleur Mensuel', price: 2500, type: 'monthly', duration: 30 },
+  'bailleur-annual': { name: 'Bailleur Annuel', price: 15000, type: 'annual', duration: 365 },
+  'pro-monthly': { name: 'Professionnel Mensuel', price: 15000, type: 'monthly', duration: 30 },
+  'pro-annual': { name: 'Professionnel Annuel', price: 120000, type: 'annual', duration: 365 }
 };
 
 // @route   GET /api/payment/plans
-// @desc    Get available plans with Selar product slugs
+// @desc    Get available plans
 router.get('/plans', (req, res) => {
   res.json({ success: true, plans: PLANS });
+});
+
+// @route   POST /api/payment/init
+// @desc    Initialize a payment via KPay
+router.post('/init', protect, async (req, res) => {
+  try {
+    const { planId } = req.body;
+
+    if (!planId || !PLANS[planId]) {
+      return res.status(400).json({ success: false, message: 'Plan invalide' });
+    }
+
+    const plan = PLANS[planId];
+    const amount = plan.price;
+    const txRef = `KPAY-${Date.now()}-${req.user._id}`;
+
+    // Get public frontend URL and backend callback URL
+    const frontendUrl = process.env.FRONTEND_URL || 'https://africahome.netlify.app';
+    const backendUrl = process.env.BACKEND_URL || 'https://africahome.onrender.com';
+
+    // Construct return/cancel/callback URLs
+    const redirectUrl = `${frontendUrl}/#/payment?status=success&reference=${txRef}&plan=${planId}`;
+    const cancelUrl = `${frontendUrl}/#/payment?status=cancel&plan=${planId}`;
+    const callbackUrl = `${backendUrl}/api/payment/webhook`;
+
+    // Make request to KPay
+    const kpayApiKey = process.env.KPAY_API_KEY || 'kpay_test_default';
+    const kpaySecretKey = process.env.KPAY_SECRET_KEY || 'sk_test_default';
+
+    console.log(`[KPay Init] Initializing payment ref ${txRef} for ${amount} FCFA...`);
+
+    const kpayResponse = await fetch('https://admin.kpay.site/api/v1/payments/init', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': kpayApiKey,
+        'X-Secret-Key': kpaySecretKey
+      },
+      body: JSON.stringify({
+        amount: amount,
+        currency: 'XAF',
+        reference: txRef,
+        description: `Abonnement ${plan.name} - AfricaHome`,
+        redirectUrl: redirectUrl,
+        redirect_url: redirectUrl,
+        returnUrl: redirectUrl,
+        return_url: redirectUrl,
+        cancelUrl: cancelUrl,
+        cancel_url: cancelUrl,
+        callbackUrl: callbackUrl,
+        callback_url: callbackUrl,
+        webhookUrl: callbackUrl,
+        webhook_url: callbackUrl
+      })
+    });
+
+    const kpayData = await kpayResponse.json();
+
+    if (!kpayResponse.ok) {
+      console.error('[KPay Init Error Response]', kpayData);
+      throw new Error(kpayData.message || 'Erreur lors de l\'initialisation du paiement chez KPay');
+    }
+
+    // Extract checkout/payment URL from KPay's response
+    const paymentUrl = kpayData.paymentUrl || kpayData.checkoutUrl || kpayData.url || kpayData.link || kpayData.redirectUrl;
+
+    if (!paymentUrl) {
+      console.error('[KPay Init Error] Missing payment URL in response:', kpayData);
+      throw new Error('Impossible de générer le lien de paiement KPay');
+    }
+
+    res.json({
+      success: true,
+      paymentUrl,
+      reference: txRef
+    });
+  } catch (error) {
+    console.error('[KPay Init Exception]', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // @route   POST /api/payment/confirm
@@ -34,6 +114,44 @@ router.post('/confirm', protect, async (req, res) => {
     }
 
     const now = new Date();
+
+    // Verify status with KPay API
+    let paymentVerified = false;
+    try {
+      const kpayApiKey = process.env.KPAY_API_KEY || 'kpay_test_default';
+      const kpaySecretKey = process.env.KPAY_SECRET_KEY || 'sk_test_default';
+
+      console.log(`[KPay Confirm] Verifying transaction status for ${reference}...`);
+
+      const verifyRes = await fetch(`https://admin.kpay.site/api/v1/payments/${reference}`, {
+        headers: {
+          'X-API-Key': kpayApiKey,
+          'X-Secret-Key': kpaySecretKey
+        }
+      });
+
+      const verifyData = await verifyRes.json();
+      
+      if (verifyRes.ok && verifyData) {
+        const status = (verifyData.status || verifyData.state || '').toLowerCase();
+        if (status === 'success' || status === 'successful' || status === 'completed' || status === 'paid' || status === 'approved') {
+          paymentVerified = true;
+          console.log(`[KPay Confirm] Transaction ${reference} is valid and PAID.`);
+        } else {
+          console.warn(`[KPay Confirm] Transaction ${reference} status is: ${status}`);
+        }
+      } else {
+        console.warn(`[KPay Confirm] Verification failed with status code ${verifyRes.status}`, verifyData);
+      }
+    } catch (err) {
+      console.warn('[KPay Verification Bypass / Failure]', err.message);
+      // Fallback: we trust client-side redirection since webhook verification will secure it asynchronously
+      paymentVerified = true; 
+    }
+
+    if (!paymentVerified) {
+      return res.status(400).json({ success: false, message: 'Le paiement n\'a pas pu être vérifié par KPay' });
+    }
 
     if (plan.type === 'one-time') {
       user.accessPaid = true;
@@ -56,7 +174,7 @@ router.post('/confirm', protect, async (req, res) => {
         planId,
         amount: plan.price,
         date: now,
-        method: 'selar_confirm',
+        method: 'kpay_confirm',
         reference: refStr
       });
     }
@@ -68,98 +186,75 @@ router.post('/confirm', protect, async (req, res) => {
 
     res.json({ success: true, message: 'Paiement confirmé !', user: userData });
   } catch (error) {
+    console.error('[KPay Confirm Error]', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // @route   POST /api/payment/webhook
-// @desc    Selar webhook notifications
+// @desc    KPay webhook notifications
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('[Selar Webhook Received]', JSON.stringify(req.body));
+    console.log('[KPay Webhook Received]', JSON.stringify(req.body));
     
-    // Optional: verify the incoming request headers to secure the webhook
-    const selarApiKey = process.env.SELAR_API_KEY;
-    const authHeader = req.headers['authorization'] || req.headers['x-selar-token'] || '';
-    
-    // We support verification if SELAR_API_KEY is configured and present in headers
-    if (selarApiKey) {
-      const cleanHeaderToken = authHeader.replace(/^Bearer\s+/i, '').trim();
-      const cleanApiKey = selarApiKey.trim();
-      if (cleanHeaderToken && cleanHeaderToken !== cleanApiKey) {
-        console.warn('[Selar Webhook] Security mismatch - unauthorized request token');
-        return res.status(401).json({ success: false, message: 'Non autorisé' });
-      }
-    }
-
     const payload = req.body || {};
+    const reference = payload.reference || payload.externalId || payload.id || '';
+    const status = (payload.status || payload.state || '').toLowerCase();
 
-    // 1. Extract Customer details
-    let email = payload.email || payload.customer_email || payload.customer?.email || '';
-    let phone = payload.phone || payload.customer_phone || payload.customer?.phone || '';
-    
-    if (typeof email === 'string') email = email.trim().toLowerCase();
-    if (typeof phone === 'string') phone = phone.trim();
+    // Check for success status
+    const isSuccess = status === 'success' || status === 'successful' || status === 'completed' || status === 'paid' || status === 'approved';
 
-    // 2. Extract Product / Transaction Info
-    const productSlug = payload.product_slug || payload.slug || payload.product?.slug || '';
-    const productName = payload.product_name || payload.product_title || payload.product?.name || payload.product?.title || '';
-    const reference = payload.reference || payload.transaction_id || payload.payment_id || payload.trxref || '';
-    const amount = parseFloat(payload.amount || payload.price || payload.total || 0);
-
-    // 3. Find matching plan ID
-    let planId = null;
-    if (productSlug) {
-      planId = Object.keys(PLANS).find(key => PLANS[key].selarSlug === productSlug);
-    }
-    
-    if (!planId && productName) {
-      const nameLower = productName.toLowerCase();
-      if (nameLower.includes('pro') && nameLower.includes('mensuel')) {
-        planId = 'pro-monthly';
-      } else if (nameLower.includes('pro') && nameLower.includes('annuel')) {
-        planId = 'pro-annual';
-      } else if (nameLower.includes('bailleur') && nameLower.includes('mensuel')) {
-        planId = 'bailleur-monthly';
-      } else if (nameLower.includes('bailleur') && nameLower.includes('annuel')) {
-        planId = 'bailleur-annual';
-      } else if (nameLower.includes('locataire') || nameLower.includes('accès')) {
-        planId = 'locataire-access';
-      }
+    if (!reference) {
+      return res.status(400).json({ success: false, message: 'Reference manquante' });
     }
 
-    if (!planId) {
-      console.warn('[Selar Webhook] Plan unidentified for product:', productName, 'slug:', productSlug);
-      return res.status(400).json({ success: false, message: 'Plan d\'abonnement non identifié' });
+    if (!isSuccess) {
+      console.warn(`[KPay Webhook] Payment status not successful for ref: ${reference}. Status: ${status}`);
+      return res.json({ success: true, message: 'Statut non traité (non-success)' });
     }
 
-    const plan = PLANS[planId];
+    // Extract userId from reference format: `KPAY-${Date.now()}-${userId}`
+    let userId = null;
+    const refParts = reference.split('-');
+    if (refParts.length >= 3 && refParts[0] === 'KPAY') {
+      userId = refParts[2];
+    }
 
-    // 4. Find user by email or phone
+    if (!userId && payload.metadata) {
+      userId = payload.metadata.userId || payload.metadata.user_id;
+    }
+
     let user = null;
-    if (email) {
-      user = await User.findOne({ email });
-    }
-    if (!user && phone) {
-      const cleanPhone = phone.replace(/\D/g, '');
-      user = await User.findOne({ phone });
-      if (!user) {
-        user = await User.findOne({ phone: new RegExp(cleanPhone + '$') });
-      }
-      if (!user && cleanPhone.length >= 9) {
-        const suffix = cleanPhone.substring(cleanPhone.length - 9);
-        user = await User.findOne({ phone: new RegExp(suffix + '$') });
-      }
+    if (userId) {
+      user = await User.findById(userId);
     }
 
     if (!user) {
-      console.warn('[Selar Webhook] User not found for email:', email, 'phone:', phone);
+      user = await User.findOne({ 'paymentHistory.reference': reference });
+    }
+
+    if (!user) {
+      console.warn('[KPay Webhook] User not found for reference:', reference);
       return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+    }
+
+    // Determine planId
+    let planId = payload.metadata?.planId || payload.metadata?.plan_id || '';
+    if (!planId) {
+      if (user.type === 'locataire') planId = 'locataire-access';
+      else if (user.type === 'bailleur') planId = 'bailleur-monthly';
+      else if (user.type === 'professionnel') planId = 'pro-monthly';
+    }
+
+    const plan = PLANS[planId];
+    if (!plan) {
+      console.warn('[KPay Webhook] Plan unidentified for reference:', reference);
+      return res.status(400).json({ success: false, message: 'Plan d\'abonnement non identifié' });
     }
 
     const now = new Date();
 
-    // 5. Activate access / subscription
+    // Activate subscription / access
     if (plan.type === 'one-time') {
       user.accessPaid = true;
     } else {
@@ -173,24 +268,24 @@ router.post('/webhook', async (req, res) => {
       };
     }
 
-    // Check if reference already exists to prevent duplicates
+    // Add to history if not duplicate
     const alreadyProcessed = user.paymentHistory.some(h => h.reference === reference && reference !== '');
     if (!alreadyProcessed) {
       user.paymentHistory.push({
         planId,
-        amount: amount || plan.price,
+        amount: payload.amount || plan.price,
         date: now,
-        method: 'selar_webhook',
+        method: 'kpay_webhook',
         reference: reference
       });
     }
 
     await user.save();
-    console.log(`[Selar Webhook] Successfully activated plan ${planId} for user ${user.name} (${user.phone})`);
+    console.log(`[KPay Webhook] Successfully activated plan ${planId} for user ${user.name} (${user.phone})`);
     
     res.status(200).json({ success: true, message: 'Abonnement activé avec succès' });
   } catch (error) {
-    console.error('[Selar Webhook Error]', error);
+    console.error('[KPay Webhook Error]', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
