@@ -78,7 +78,7 @@ router.post('/init', protect, async (req, res) => {
 
     if (!paymentUrl) {
       console.error('[KPay Init Error] Missing payment URL in response:', kpayData);
-      throw new Error('Impossible de générer le lien de paiement KPay');
+      throw new Error('Impossible de générer le lien de paiement KPay. Réponse KPay: ' + JSON.stringify(kpayData));
     }
 
     res.json({
