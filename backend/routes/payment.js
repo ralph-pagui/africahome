@@ -74,11 +74,11 @@ router.post('/init', protect, async (req, res) => {
     const kpayData = kpayResponse.data;
 
     // Extract checkout/payment URL from KPay's response
-    const paymentUrl = kpayData.paymentUrl || kpayData.checkoutUrl || kpayData.url || kpayData.link || kpayData.redirectUrl;
+    const paymentUrl = kpayData.gatewayUrl || kpayData.paymentUrl || kpayData.checkoutUrl || kpayData.url || kpayData.link || kpayData.redirectUrl;
 
     if (!paymentUrl) {
       console.error('[KPay Init Error] Missing payment URL in response:', kpayData);
-      throw new Error('Impossible de générer le lien de paiement KPay. Réponse KPay: ' + JSON.stringify(kpayData));
+      throw new Error('Impossible de générer le lien de paiement KPay');
     }
 
     res.json({
