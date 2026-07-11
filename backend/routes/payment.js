@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Payment = require('../models/Payment');
 const { protect } = require('../middleware/auth');
 
 const PLANS = {
@@ -33,18 +34,27 @@ router.post('/init', protect, async (req, res) => {
 
     // Get public frontend URL and backend callback URL
     const frontendUrl = process.env.FRONTEND_URL || 'https://africahome.netlify.app';
-    const backendUrl = process.env.BACKEND_URL || 'https://africahome.onrender.com';
 
     // Construct return/cancel/callback URLs
     const redirectUrl = `${frontendUrl}/#/payment?status=success&reference=${txRef}&plan=${planId}`;
     const cancelUrl = `${frontendUrl}/#/payment?status=cancel&plan=${planId}`;
-    const callbackUrl = `${backendUrl}/api/payment/webhook`;
 
     // Make request to KPay
     const kpayApiKey = process.env.KPAY_API_KEY || 'kpay_test_default';
     const kpaySecretKey = process.env.KPAY_SECRET_KEY || 'sk_test_default';
 
     console.log(`[KPay Init] Initializing payment ref ${txRef} for ${amount} FCFA...`);
+
+    // Create pending payment record in database
+    await Payment.create({
+      user: req.user._id,
+      type: plan.type === 'one-time' ? 'access' : 'subscription',
+      plan: plan.type === 'one-time' ? 'one-time' : plan.type,
+      amount,
+      currency: 'XAF',
+      flutterwaveRef: txRef,
+      status: 'pending'
+    });
 
     const kpayResponse = await fetch('https://admin.kpay.site/api/v1/payments/init', {
       method: 'POST',
@@ -55,19 +65,8 @@ router.post('/init', protect, async (req, res) => {
       },
       body: JSON.stringify({
         amount: amount,
-        currency: 'XAF',
-        reference: txRef,
-        description: `Abonnement ${plan.name} - AfricaHome`,
-        redirectUrl: redirectUrl,
-        redirect_url: redirectUrl,
-        returnUrl: redirectUrl,
-        return_url: redirectUrl,
-        cancelUrl: cancelUrl,
-        cancel_url: cancelUrl,
-        callbackUrl: callbackUrl,
-        callback_url: callbackUrl,
-        webhookUrl: callbackUrl,
-        webhook_url: callbackUrl
+        externalId: txRef,
+        description: `Abonnement ${plan.name} - AfricaHome`
       })
     });
 
@@ -111,6 +110,19 @@ router.post('/confirm', protect, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
+    }
+
+    // Find the payment record
+    const payment = await Payment.findOne({ flutterwaveRef: reference });
+    if (!payment) {
+      console.warn(`[KPay Confirm] Payment record not found for reference: ${reference}`);
+    }
+
+    // If already successful, return success
+    if (payment && payment.status === 'successful') {
+      const userData = user.toObject();
+      delete userData.password;
+      return res.json({ success: true, message: 'Paiement déjà confirmé !', user: userData });
     }
 
     const now = new Date();
@@ -179,6 +191,12 @@ router.post('/confirm', protect, async (req, res) => {
       });
     }
 
+    // Update payment record status
+    if (payment) {
+      payment.status = 'successful';
+      await payment.save();
+    }
+
     await user.save();
 
     const userData = user.toObject();
@@ -213,11 +231,20 @@ router.post('/webhook', async (req, res) => {
       return res.json({ success: true, message: 'Statut non traité (non-success)' });
     }
 
-    // Extract userId from reference format: `KPAY-${Date.now()}-${userId}`
-    let userId = null;
-    const refParts = reference.split('-');
-    if (refParts.length >= 3 && refParts[0] === 'KPAY') {
-      userId = refParts[2];
+    // Find the payment record
+    const payment = await Payment.findOne({ flutterwaveRef: reference });
+    if (!payment) {
+      console.warn(`[KPay Webhook] Payment record not found for reference: ${reference}`);
+    }
+
+    // Determine user ID
+    let userId = payment ? payment.user : null;
+    if (!userId) {
+      // Fallback: extract userId from reference format: `KPAY-${Date.now()}-${userId}`
+      const refParts = reference.split('-');
+      if (refParts.length >= 3 && refParts[0] === 'KPAY') {
+        userId = refParts[2];
+      }
     }
 
     if (!userId && payload.metadata) {
@@ -238,8 +265,21 @@ router.post('/webhook', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Utilisateur introuvable' });
     }
 
+    // If payment record already marked successful, skip to avoid duplicate activation
+    if (payment && payment.status === 'successful') {
+      console.log('[KPay Webhook] Payment already marked successful. Skipping activation.');
+      return res.status(200).json({ success: true, message: 'Déjà traité' });
+    }
+
     // Determine planId
-    let planId = payload.metadata?.planId || payload.metadata?.plan_id || '';
+    let planId = '';
+    if (payment) {
+      const planType = payment.plan;
+      if (user.type === 'locataire') planId = 'locataire-access';
+      else if (user.type === 'bailleur') planId = planType === 'annual' ? 'bailleur-annual' : 'bailleur-monthly';
+      else if (user.type === 'professionnel') planId = planType === 'annual' ? 'pro-annual' : 'pro-monthly';
+    }
+
     if (!planId) {
       if (user.type === 'locataire') planId = 'locataire-access';
       else if (user.type === 'bailleur') planId = 'bailleur-monthly';
@@ -278,6 +318,15 @@ router.post('/webhook', async (req, res) => {
         method: 'kpay_webhook',
         reference: reference
       });
+    }
+
+    // Update payment record
+    if (payment) {
+      payment.status = 'successful';
+      if (payload.paymentMethod || payload.payment_method) {
+        payment.paymentMethod = payload.paymentMethod || payload.payment_method;
+      }
+      await payment.save();
     }
 
     await user.save();
