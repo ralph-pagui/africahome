@@ -51,6 +51,8 @@ app.use(cors({
     process.env.FRONTEND_URL,
     'http://localhost:3000',
     'http://localhost:5173',
+    'http://localhost',       // Android Capacitor WebView
+    'capacitor://localhost',  // iOS Capacitor WebView
     /\.vercel\.app$/
   ],
   credentials: true

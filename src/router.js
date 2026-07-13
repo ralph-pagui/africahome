@@ -18,6 +18,22 @@ class Router {
     if (handler) handler(param);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  refresh() {
+    const fullHash = window.location.hash.slice(1) || '/';
+    const [hashPath] = fullHash.split('?');
+    const [path, ...paramParts] = hashPath.split('/').filter(Boolean);
+    const route = '/' + (path || '');
+    const param = paramParts.join('/');
+    const handler = this.routes[route] || this.routes['/404'] || this.routes['/'];
+    if (handler) {
+      const scrollPos = window.scrollY;
+      const originalScrollTo = window.scrollTo;
+      window.scrollTo = () => {};
+      handler(param);
+      window.scrollTo = originalScrollTo;
+      window.scrollTo(0, scrollPos);
+    }
+  }
   navigate(path) { window.location.hash = path; }
   start() { this.resolve(); }
 }
