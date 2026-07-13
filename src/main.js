@@ -43,36 +43,38 @@ window.APP = { api, store, mode: 'api' };
     store.syncFromApi(listingsData.listings || []);
     store.syncPublicStats(statsData);
     console.log(`✅ Données chargées (annonces: ${(listingsData.listings || []).length}, utilisateurs: ${statsData.totalUsers})`);
-    checkGlobalPaymentCallback();
-    router.start();
-
-    // Background Real-Time Synchronization (every 10 seconds)
-    setInterval(async () => {
-      try {
-        const [listingsData, statsData] = await Promise.all([
-          window.APP.api.getListings({ limit: 200 }),
-          window.APP.api.getPublicStats().catch(() => null)
-        ]);
-        
-        if (listingsData && listingsData.listings) {
-          store.syncFromApi(listingsData.listings);
-        }
-        if (statsData) {
-          store.syncPublicStats(statsData);
-        }
-        
-        // Dynamic UI refresh for listing/data pages
-        const REFRESHABLE_ROUTES = ['/', '/listings', '/detail', '/favorites', '/owner'];
-        if (REFRESHABLE_ROUTES.includes(router.current)) {
-          router.refresh();
-        }
-      } catch (err) {
-        console.warn('⚠️ Échec de la synchronisation en arrière-plan:', err.message);
-      }
-    }, 10000);
   } catch (e) {
     console.warn('⚠️ Échec du préchargement des données:', e.message);
+  } finally {
+    checkGlobalPaymentCallback();
+    router.start();
   }
+
+  // Background Real-Time Synchronization (every 20 seconds) - Only runs when tab is active
+  setInterval(async () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      const [listingsData, statsData] = await Promise.all([
+        window.APP.api.getListings({ limit: 200 }),
+        window.APP.api.getPublicStats().catch(() => null)
+      ]);
+      
+      if (listingsData && listingsData.listings) {
+        store.syncFromApi(listingsData.listings);
+      }
+      if (statsData) {
+        store.syncPublicStats(statsData);
+      }
+      
+      // Dynamic UI refresh for listing/data pages
+      const REFRESHABLE_ROUTES = ['/', '/listings', '/detail', '/favorites', '/owner'];
+      if (REFRESHABLE_ROUTES.includes(router.current)) {
+        router.refresh();
+      }
+    } catch (err) {
+      console.warn('⚠️ Échec de la synchronisation en arrière-plan:', err.message);
+    }
+  }, 20000);
 })();
 
 const navbar = document.getElementById('navbar');

@@ -68,9 +68,22 @@ window.confirmDeleteListing = (id, title) => {
   </div>`;
 };
 
-window.doDeleteListing = (id) => {
-  store.deleteListing(id);
-  document.getElementById('modal-root').innerHTML = '';
-  window.showToast('Annonce supprimée avec succès', 'success');
-  window.dispatchEvent(new Event('hashchange'));
+window.doDeleteListing = async (id) => {
+  const btn = document.querySelector('.modal .btn-danger');
+  if (btn) {
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Suppression...';
+    btn.disabled = true;
+  }
+  try {
+    await store.deleteListing(id);
+    document.getElementById('modal-root').innerHTML = '';
+    window.showToast('Annonce supprimée avec succès', 'success');
+    window.dispatchEvent(new Event('hashchange'));
+  } catch (err) {
+    window.showToast('Échec de la suppression : ' + err.message, 'error');
+    if (btn) {
+      btn.innerHTML = '<i class="fas fa-trash-alt"></i> Confirmer';
+      btn.disabled = false;
+    }
+  }
 };

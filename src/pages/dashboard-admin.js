@@ -258,14 +258,19 @@ window.doAdminDeleteUser = (uid) => {
 };
 window.adminToggleListing = (lid) => {
   if (window.APP?.mode === 'api') {
-    window.APP.api.adminToggleListing(lid).then(() => { window.showToast('Annonce mise à jour','success'); adminData=null; window.dispatchEvent(new Event('hashchange')); }).catch(e => window.showToast(e.message,'error'));
+    window.APP.api.adminToggleListing(lid).then(() => { store.invalidateApiCache(); window.showToast('Annonce mise à jour','success'); adminData=null; window.dispatchEvent(new Event('hashchange')); }).catch(e => window.showToast(e.message,'error'));
   } else { store.adminToggleListing(lid); window.showToast('Annonce mise à jour','success'); window.dispatchEvent(new Event('hashchange')); }
 };
 window.adminDeleteListing = (lid, title) => {
   document.getElementById('modal-root').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)this.innerHTML=''"><div class="modal"><h3><i class="fas fa-exclamation-triangle" style="color:#c62828;margin-right:8px"></i>Supprimer l'annonce</h3><p style="margin:16px 0;color:var(--text)">Supprimer <strong>"${title}"</strong> ?</p><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-outline btn-sm" onclick="document.getElementById('modal-root').innerHTML=''">Annuler</button><button class="btn btn-danger btn-sm" id="cdl-btn"><i class="fas fa-trash"></i> Confirmer</button></div></div></div>`;
   document.getElementById('cdl-btn').onclick = () => {
-    if (window.APP?.mode === 'api') { window.APP.api.adminDeleteListing(lid).then(() => { window.showToast('Supprimée','success'); adminData=null; document.getElementById('modal-root').innerHTML=''; window.dispatchEvent(new Event('hashchange')); }).catch(e => window.showToast(e.message,'error')); }
-    else { store.deleteListing(lid); document.getElementById('modal-root').innerHTML=''; window.showToast('Supprimée','success'); window.dispatchEvent(new Event('hashchange')); }
+    const btn = document.getElementById('cdl-btn');
+    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>...'; btn.disabled = true; }
+    if (window.APP?.mode === 'api') { 
+      window.APP.api.adminDeleteListing(lid).then(() => { store.invalidateApiCache(); window.showToast('Supprimée','success'); adminData=null; document.getElementById('modal-root').innerHTML=''; window.dispatchEvent(new Event('hashchange')); }).catch(e => { window.showToast(e.message,'error'); if (btn) { btn.innerHTML = '<i class="fas fa-trash"></i> Confirmer'; btn.disabled = false; } }); 
+    } else { 
+      store.deleteListing(lid).then(() => { document.getElementById('modal-root').innerHTML=''; window.showToast('Supprimée','success'); window.dispatchEvent(new Event('hashchange')); }); 
+    }
   };
 };
 window.adminDeleteReview = (rid) => {
