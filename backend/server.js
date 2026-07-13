@@ -46,15 +46,30 @@ app.use(helmet({
 }));
 
 // CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost',
+  'https://localhost',
+  'capacitor://localhost'
+];
+
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL,
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost',       // Android Capacitor WebView
-    'capacitor://localhost',  // iOS Capacitor WebView
-    /\.vercel\.app$/
-  ],
+  origin: function (origin, callback) {
+    if (!origin || origin === 'null') return callback(null, true);
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.startsWith('http://localhost') || 
+                      origin.startsWith('https://localhost') || 
+                      origin.startsWith('capacitor://') ||
+                      /\.vercel\.app$/.test(origin);
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn('Blocked origin by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
