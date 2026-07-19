@@ -476,3 +476,19 @@ window.showSettingsModal = () => {
   };
 };
 
+window.copyPromoCode = (code) => {
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    window.showToast('Code promo copié avec succès !', 'success');
+  }).catch(() => {
+    // Fallback if clipboard API fails
+    const el = document.createElement('textarea');
+    el.value = code;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    window.showToast('Code promo copié !', 'success');
+  });
+};
+

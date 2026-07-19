@@ -55,6 +55,11 @@ export function renderRegister() {
         
         <div class="form-group"><label>Mot de passe *</label><input type="password" id="reg-password" placeholder="Min. 6 caractères" required minlength="6" /></div>
         
+        <div class="form-group">
+          <label>Code Promo / Parrainage (facultatif)</label>
+          <input type="text" id="reg-referred-by" placeholder="Ex: NOM123" style="text-transform:uppercase" />
+        </div>
+        
         <div id="reg-plan-info" style="background:rgba(230,81,0,0.1);border:1px solid rgba(230,81,0,0.2);border-radius:var(--radius-sm);padding:16px;margin-bottom:18px">
           <div style="font-weight:600;color:var(--orange);margin-bottom:8px">💳 Abonnement Bailleur</div>
           <div style="font-size:.85rem;color:var(--text)">• Mensuel : <strong>2 500 FCFA</strong><br>• Annuel : <strong>15 000 FCFA</strong><br><span style="font-size:.8rem;color:var(--gray)">Paiement par Orange Money / Mobile Money</span></div>
@@ -144,7 +149,8 @@ window.handleRegister = async (e) => {
       password: document.getElementById('reg-password').value,
       country: document.getElementById('reg-country')?.value || '',
       city: document.getElementById('reg-city')?.value || '',
-      quarter: document.getElementById('reg-quarter')?.value || ''
+      quarter: document.getElementById('reg-quarter')?.value || '',
+      referredByCode: document.getElementById('reg-referred-by')?.value || ''
     };
 
     let officialDocUrl = '';

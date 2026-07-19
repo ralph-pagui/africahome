@@ -108,6 +108,7 @@ export function renderDashboardAdmin() {
         <div class="ps-tab active" onclick="window.switchAdminTab('users')">👥 Utilisateurs (${allUsers.filter(u=>u.type!=='admin').length})</div>
         <div class="ps-tab" onclick="window.switchAdminTab('listings')">🏠 Annonces (${allListings.length})</div>
         <div class="ps-tab" onclick="window.switchAdminTab('reviews')">⭐ Avis (${totalReviews})</div>
+        <div class="ps-tab" onclick="window.switchAdminTab('parrainages')">🎁 Parrainages</div>
       </div>
 
       <!-- TAB: USERS -->
@@ -226,6 +227,63 @@ export function renderDashboardAdmin() {
         </div>
       </div>
 
+      <!-- TAB: PARRAINAGES -->
+      <div id="admin-tab-parrainages" class="admin-tab-content" style="display:none">
+        <div class="admin-table-wrapper">
+          <table class="admin-table" id="admin-parrainages-table">
+            <thead>
+              <tr>
+                <th>Parrain</th>
+                <th>Type</th>
+                <th>Code Promo</th>
+                <th>Inscriptions Parrainées</th>
+                <th>Membres Parrainés</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(() => {
+                const referrers = allUsers.filter(u => u.promoCode);
+                const referredUsersMap = {};
+                allUsers.forEach(u => {
+                  if (u.referredBy) {
+                    if (!referredUsersMap[u.referredBy]) {
+                      referredUsersMap[u.referredBy] = [];
+                    }
+                    referredUsersMap[u.referredBy].push(u);
+                  }
+                });
+
+                const rows = referrers.map(referrer => {
+                  const referrals = referredUsersMap[referrer.promoCode] || [];
+                  return { referrer, referrals };
+                })
+                .filter(item => item.referrals.length > 0)
+                .sort((a, b) => b.referrals.length - a.referrals.length);
+
+                if (!rows.length) {
+                  return `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray)">Aucun parrainage enregistré pour le moment.</td></tr>`;
+                }
+
+                return rows.map(({ referrer, referrals }) => {
+                  const namesList = referrals.map(u => `${u.name} (${u.type === 'bailleur' ? 'Bailleur' : u.type === 'locataire' ? 'Locataire' : 'Pro'})`).join(', ');
+                  return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:600;font-size:.85rem">${referrer.name}</div>
+                      <div style="font-size:.72rem;color:var(--gray)">${referrer.phone}</div>
+                    </td>
+                    <td><span class="admin-badge admin-badge-${referrer.type}">${referrer.type==='bailleur'?'🏠 Bailleur':referrer.type==='locataire'?'🔍 Locataire':'🏢 Pro'}</span></td>
+                    <td style="font-family:monospace;font-weight:700;font-size:.9rem;color:var(--orange)">${referrer.promoCode}</td>
+                    <td style="font-weight:700;font-size:.95rem;color:var(--green);text-align:center">${referrals.length}</td>
+                    <td style="font-size:.8rem;color:#555;max-width:300px;word-wrap:break-word">${namesList}</td>
+                  </tr>`;
+                }).join('');
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>`;
 }
@@ -236,7 +294,7 @@ window.switchAdminTab = (tab) => {
   document.querySelectorAll('#admin-tabs .ps-tab').forEach(el => el.classList.remove('active'));
   const t = document.getElementById(`admin-tab-${tab}`);
   if (t) t.style.display = 'block';
-  const tabs = { users: 0, listings: 1, reviews: 2 };
+  const tabs = { users: 0, listings: 1, reviews: 2, parrainages: 3 };
   document.querySelectorAll('#admin-tabs .ps-tab')[tabs[tab]]?.classList.add('active');
 };
 window.filterAdminUsers = (q) => { const s=q.toLowerCase(); document.querySelectorAll('#admin-users-table tbody tr').forEach(tr => { tr.style.display = tr.dataset.name.includes(s)?'':'none'; }); };

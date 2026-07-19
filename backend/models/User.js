@@ -86,6 +86,9 @@ const UserSchema = new mongoose.Schema({
   // Favorites
   favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Listing' }],
 
+  promoCode: { type: String, unique: true, sparse: true, trim: true },
+  referredBy: { type: String, trim: true },
+
   avatar: { type: String },
   createdAt: { type: Date, default: Date.now }
 });

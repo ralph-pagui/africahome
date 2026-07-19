@@ -9,7 +9,7 @@ const { validate, registerRules, loginRules } = require('../middleware/validator
 router.post('/register', registerRules, validate, async (req, res) => {
   try {
     const { type, name, phone, whatsapp, email, password, country, city, quarter,
-            structureName, niu, representativeName, cniNumber, officialDocUrl, cniPhotoUrl } = req.body;
+            structureName, niu, representativeName, cniNumber, officialDocUrl, cniPhotoUrl, referredByCode } = req.body;
 
     // Check if phone exists
     const existing = await User.findOne({ phone });
@@ -17,10 +17,37 @@ router.post('/register', registerRules, validate, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Ce numéro de téléphone est déjà utilisé' });
     }
 
+    // Generate unique promoCode
+    let promoCode = name.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, '').substring(0, 6);
+    if (promoCode.length < 3) promoCode += 'AH';
+    const phoneSuffix = phone.replace(/[^0-9]/g, '').slice(-3);
+    promoCode += phoneSuffix || Math.floor(100 + Math.random() * 900);
+
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 10) {
+      const check = await User.findOne({ promoCode });
+      if (!check) {
+        isUnique = true;
+      } else {
+        promoCode += Math.floor(Math.random() * 10);
+        attempts++;
+      }
+    }
+
     const userData = {
       type, name, phone, whatsapp: whatsapp || phone, email, password,
-      country, city, quarter
+      country, city, quarter, promoCode
     };
+
+    // If referred by a promo code, save it
+    if (referredByCode) {
+      const cleanedCode = referredByCode.trim().toUpperCase();
+      const referrer = await User.findOne({ promoCode: cleanedCode });
+      if (referrer) {
+        userData.referredBy = referrer.promoCode;
+      }
+    }
 
     // Professional extra fields
     if (type === 'professionnel') {
