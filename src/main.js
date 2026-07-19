@@ -104,7 +104,10 @@ window.addEventListener('scroll', () => {
 
 // Routes
 router
-  .on('/', () => render(renderHome()))
+  .on('/', () => {
+    render(renderHome());
+    if (window.initializeHome) window.initializeHome();
+  })
   .on('/listings', () => render(renderListings()))
   .on('/detail', (id) => render(renderDetail(id)))
   .on('/login', () => render(renderLogin()))

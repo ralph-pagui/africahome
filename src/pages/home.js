@@ -1,5 +1,6 @@
 import { store } from '../store.js';
 import { renderPropertyCard } from '../components/property-card.js';
+import { ALL_COUNTRY_NAMES, AFRICAN_COUNTRIES } from '../utils.js';
 
 function renderHScroll(title, link, listings) {
   if (!listings.length) return '';
@@ -13,6 +14,10 @@ export function renderHome() {
   const topRated = store.getTrending('rating', 6);
   const newest = store.getTrending('new', 6);
 
+  const allListings = store.getListings();
+  const activeCountries = [...new Set(allListings.map(l => l.country).filter(Boolean))];
+  const countries = [...new Set([...ALL_COUNTRY_NAMES, ...activeCountries])].sort();
+
   return `
   <div class="hero">
     <div class="hero-content">
@@ -20,8 +25,16 @@ export function renderHome() {
       <h1>Trouvez votre <span class="highlight">logement idéal</span> en Afrique</h1>
       <p>Location, vente, terrain, construction — tout l'immobilier africain sur une seule plateforme.</p>
       <div class="hero-search">
-        <select id="hero-country"><option value="">Pays</option><option value="Cameroun">Cameroun</option><option value="Sénégal">Sénégal</option><option value="Côte d'Ivoire">Côte d'Ivoire</option><option value="RD Congo">RD Congo</option></select>
-        <select id="hero-city"><option value="">Ville</option><option value="Douala">Douala</option><option value="Yaoundé">Yaoundé</option><option value="Dakar">Dakar</option><option value="Abidjan">Abidjan</option></select>
+        <select id="hero-country" onchange="window.updateHeroCities()">
+          <option value="">Pays</option>
+          ${countries.map(c => {
+            const flag = AFRICAN_COUNTRIES[c]?.flag || '🌍';
+            return `<option value="${c}">${flag} ${c}</option>`;
+          }).join('')}
+        </select>
+        <select id="hero-city">
+          <option value="">Ville</option>
+        </select>
         <select id="hero-type"><option value="">Type</option><option value="chambre">Chambre</option><option value="studio">Studio</option><option value="appartement">Appartement</option><option value="maison">Maison</option><option value="terrain">Terrain</option></select>
         <button class="btn btn-primary" onclick="window.heroSearch()"><i class="fas fa-search"></i></button>
       </div>
@@ -99,4 +112,64 @@ window.switchHomeTab = (tab, el) => {
   });
   document.querySelectorAll('.ps-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
+};
+
+window.updateHeroCities = () => {
+  const countryEl = document.getElementById('hero-country');
+  const cityEl = document.getElementById('hero-city');
+  if (!countryEl || !cityEl) return;
+  
+  const selectedCountry = countryEl.value;
+  const allListings = store.getListings();
+  
+  // Get active cities (from database listings) for this country
+  const activeCities = [...new Set(
+    allListings
+      .filter(l => !selectedCountry || l.country === selectedCountry)
+      .map(l => l.city)
+      .filter(Boolean)
+  )].sort();
+  
+  // Default popular cities mapping for major African countries
+  const defaultCitiesMap = {
+    'Cameroun': ['Douala', 'Yaoundé', 'Garoua', 'Bafoussam', 'Bamenda', 'Maroua', 'Kribi', 'Limbe'],
+    'Sénégal': ['Dakar', 'Thiès', 'Mbour', 'Saint-Louis', 'Touba', 'Ziguinchor', 'Kaolack'],
+    "Côte d'Ivoire": ['Abidjan', 'Bouaké', 'Yamoussoukro', 'San-Pédro', 'Korhogo', 'Man'],
+    'RD Congo': ['Kinshasa', 'Lubumbashi', 'Mbuji-Mayi', 'Goma', 'Kisangani', 'Bukavu', 'Kananga'],
+    'Gabon': ['Libreville', 'Port-Gentil', 'Franceville', 'Oyem', 'Moanda'],
+    'Congo': ['Brazzaville', 'Pointe-Noire', 'Dolisie', 'Nkayi'],
+    'Mali': ['Bamako', 'Sikasso', 'Mopti', 'Kayes', 'Ségou'],
+    'Burkina Faso': ['Ouagadougou', 'Bobo-Dioulasso', 'Koudougou', 'Banfora'],
+    'Guinée': ['Conakry', 'Nzérékoré', 'Kankan', 'Kindia', 'Labé'],
+    'Bénin': ['Cotonou', 'Porto-Novo', 'Parakou', 'Abomey-Calavi', 'Djougou'],
+    'Togo': ['Lomé', 'Kara', 'Sokodé', 'Kpalimé', 'Atakpamé'],
+    'Niger': ['Niamey', 'Zinder', 'Maradi', 'Tahoua'],
+    'Tchad': ['N\'Djaména', 'Moundou', 'Sarh', 'Abéché'],
+    'Madagascar': ['Antananarivo', 'Toamasina', 'Antsirabe', 'Mahajanga'],
+    'Maroc': ['Casablanca', 'Rabat', 'Marrakech', 'Fès', 'Tanger', 'Agadir', 'Oujda'],
+    'Algérie': ['Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Sétif'],
+    'Tunisie': ['Tunis', 'Sfax', 'Sousse', 'Bizerte', 'Gabès'],
+    'Rwanda': ['Kigali', 'Gisenyi', 'Butare', 'Gitarama']
+  };
+  
+  let citiesToDisplay = [];
+  if (selectedCountry) {
+    const defaults = defaultCitiesMap[selectedCountry] || [];
+    citiesToDisplay = [...new Set([...defaults, ...activeCities])].sort();
+  } else {
+    // If no country is selected, gather all default cities plus all active cities
+    const allDefaults = Object.values(defaultCitiesMap).flat();
+    citiesToDisplay = [...new Set([...allDefaults, ...activeCities])].sort();
+  }
+  
+  // Populate dropdown html
+  let html = '<option value="">Ville</option>';
+  citiesToDisplay.forEach(city => {
+    html += `<option value="${city}">${city}</option>`;
+  });
+  cityEl.innerHTML = html;
+};
+
+window.initializeHome = () => {
+  window.updateHeroCities();
 };
