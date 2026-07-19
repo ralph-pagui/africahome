@@ -133,7 +133,12 @@ class Store {
     if (window.APP?.mode === 'api') {
       return window.APP.api.getCurrentUser();
     }
-    return this.data.currentUser;
+    const u = this.data.currentUser;
+    if (u && !u.promoCode) {
+      u.promoCode = (u.name || 'USER').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '123';
+      this.save();
+    }
+    return u;
   }
   async updateProfile(profileData) {
     if (window.APP?.mode === 'api') {

@@ -4,6 +4,30 @@ const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { validate, registerRules, loginRules } = require('../middleware/validators');
 
+async function ensurePromoCode(user) {
+  if (!user.promoCode) {
+    let code = (user.name || 'USER').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, '').substring(0, 6);
+    if (code.length < 3) code += 'AH';
+    const suffix = (user.phone || '').replace(/[^0-9]/g, '').slice(-3);
+    code += suffix || Math.floor(100 + Math.random() * 900);
+    
+    let unique = false;
+    let count = 0;
+    while (!unique && count < 10) {
+      const check = await User.findOne({ promoCode: code });
+      if (!check) {
+        unique = true;
+      } else {
+        code += Math.floor(Math.random() * 10);
+        count++;
+      }
+    }
+    user.promoCode = code;
+    await user.save();
+  }
+  return user;
+}
+
 // @route   POST /api/auth/register
 // @desc    Register user
 router.post('/register', registerRules, validate, async (req, res) => {
@@ -113,6 +137,7 @@ router.post('/login', loginRules, validate, async (req, res) => {
     }
 
     const token = user.getSignedJwt();
+    await ensurePromoCode(user);
     const userObj = user.toObject();
     delete userObj.password;
 
@@ -126,6 +151,9 @@ router.post('/login', loginRules, validate, async (req, res) => {
 // @desc    Get current user
 router.get('/me', protect, async (req, res) => {
   const user = await User.findById(req.user._id);
+  if (user) {
+    await ensurePromoCode(user);
+  }
   res.json({ success: true, user });
 });
 
@@ -154,6 +182,7 @@ router.put('/me', protect, async (req, res) => {
     }
 
     await user.save();
+    await ensurePromoCode(user);
 
     const userObj = user.toObject();
     delete userObj.password;
@@ -177,6 +206,7 @@ router.post('/google-auth', async (req, res) => {
     // 1. Try to find user by googleId
     let user = await User.findOne({ googleId });
     if (user) {
+      await ensurePromoCode(user);
       const token = user.getSignedJwt();
       return res.json({ success: true, token, user });
     }
@@ -194,6 +224,7 @@ router.post('/google-auth', async (req, res) => {
         // Link Google ID
         user.googleId = googleId;
         await user.save();
+        await ensurePromoCode(user);
         
         const token = user.getSignedJwt();
         const userObj = user.toObject();
@@ -237,6 +268,7 @@ router.post('/google-auth', async (req, res) => {
       };
 
       const newUser = await User.create(userData);
+      await ensurePromoCode(newUser);
       const token = newUser.getSignedJwt();
       return res.status(201).json({ success: true, token, user: newUser });
     } else {
